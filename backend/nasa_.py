@@ -58,7 +58,7 @@ def pca(data, model):
     plt.yticks(rotation=0)
     plt.tight_layout()
     # Guardar como imagen JPG
-    plt.savefig("C:\\Users\\LOLO\\Desktop\\img\\Correlation_numeric_values.jpg", format="jpg", dpi=800)
+    plt.savefig(".\\img\\Correlation_numeric_values.jpg", format="jpg", dpi=800)
     #plt.show()
 
     #pca
@@ -98,7 +98,7 @@ def pca(data, model):
             f"          {n_components_80} components → {cumulative_variance[n_components_80-1]*100:.1f}%",
             color="g")
     plt.title("Cumulative Explained Variance 80%")
-    plt.savefig("C:\\Users\\LOLO\\Desktop\\img\\80_per_cent_PCA.jpg", format="jpg", dpi=300)
+    plt.savefig(".\\img\\80_per_cent_PCA.jpg", format="jpg", dpi=300)
     #plt.show()
 
     X_scaled = StandardScaler().fit_transform(data[num_cols])
@@ -132,7 +132,7 @@ def pca(data, model):
     plt.yticks(rotation=0)
     plt.tight_layout()
     # Guardar como imagen JPG
-    plt.savefig("C:\\Users\\LOLO\\Desktop\\img\\Correlation_numeric_values_pca.jpg", format="jpg", dpi=800)
+    plt.savefig(".\\img\\Correlation_numeric_values_pca.jpg", format="jpg", dpi=800)
     #plt.show()
 
 
