@@ -2,10 +2,12 @@ import Groq from "groq-sdk";
 
 // Initialize Groq client
 // Note: In production, use environment variables for the API key
-const groq = new Groq({
-  apiKey: process.env.REACT_APP_GROQ_API_KEY,
+const apiKey = process.env.REACT_APP_GROQ_API_KEY || process.env.GROQ_API_KEY;
+
+const groq = apiKey ? new Groq({
+  apiKey: apiKey,
   dangerouslyAllowBrowser: true // Only for development
-});
+}) : null;
 
 /**
  * System prompt for NASA DataPilot
@@ -35,6 +37,10 @@ Keep responses concise but informative (2-4 paragraphs unless asked for more det
  */
 export async function chatWithGroq(messages) {
   try {
+    if (!groq) {
+      return "⚠️ Groq API key not configured. Please set REACT_APP_GROQ_API_KEY or GROQ_API_KEY in your .env file. Get your free API key at https://console.groq.com/";
+    }
+
     // Add system prompt
     const messagesWithSystem = [
       { role: "system", content: SYSTEM_PROMPT },
@@ -55,7 +61,7 @@ export async function chatWithGroq(messages) {
     console.error("Groq API error:", error);
     
     if (error.message?.includes('API key')) {
-      return "⚠️ Groq API key not configured. Please set REACT_APP_GROQ_API_KEY in your .env file. Get your free API key at https://console.groq.com/";
+      return "⚠️ Groq API key not configured. Please set REACT_APP_GROQ_API_KEY or GROQ_API_KEY in your .env file. Get your free API key at https://console.groq.com/";
     }
     
     throw error;
@@ -70,6 +76,12 @@ export async function chatWithGroq(messages) {
  */
 export async function chatWithGroqStream(messages, onChunk) {
   try {
+    if (!groq) {
+      const errorMsg = "⚠️ Groq API key not configured. Please set REACT_APP_GROQ_API_KEY or GROQ_API_KEY in your .env file. Get your free API key at https://console.groq.com/";
+      if (onChunk) onChunk(errorMsg);
+      return errorMsg;
+    }
+
     const messagesWithSystem = [
       { role: "system", content: SYSTEM_PROMPT },
       ...messages
@@ -98,7 +110,7 @@ export async function chatWithGroqStream(messages, onChunk) {
     console.error("Groq streaming error:", error);
     
     if (error.message?.includes('API key')) {
-      const errorMsg = "⚠️ Groq API key not configured. Please set REACT_APP_GROQ_API_KEY in your .env file.";
+      const errorMsg = "⚠️ Groq API key not configured. Please set REACT_APP_GROQ_API_KEY or GROQ_API_KEY in your .env file. Get your free API key at https://console.groq.com/";
       if (onChunk) onChunk(errorMsg);
       return errorMsg;
     }
