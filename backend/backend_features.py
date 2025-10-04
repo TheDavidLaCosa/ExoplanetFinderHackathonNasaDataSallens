@@ -3,7 +3,7 @@ import pandas as pd
 import io
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20MB, ajusta si cal
+app.config["MAX_CONTENT_LENGTH"] = 120 * 1024 * 1024  # 120MB, ajusta si cal
 
 # ---------------------------
 # Plantilles HTML (inline)
@@ -122,31 +122,102 @@ TPL_RESULT = """
 # Helpers
 # ---------------------------
 
+def _detect_delimiter(lines: list[str]) -> str:
+    """
+    Intenta detectar el delimitador dominant entre ',', ';', '\\t', '|'
+    mirant la distribució de comptatges per línia (q3).
+    """
+    candidates = [',', ';', '\t', '|']
+    scores = {}
+    for d in candidates:
+        counts = [l.count(d) for l in lines if l.strip()]
+        if not counts:
+            scores[d] = 0
+        else:
+            counts_sorted = sorted(counts)
+            q3 = counts_sorted[int(0.75 * (len(counts_sorted)-1))]
+            scores[d] = q3
+    delim = max(scores, key=scores.get)
+    return delim if scores[delim] > 0 else ','
+
+def _is_plausible_header(line: str, delim: str) -> bool:
+    """
+    Capçalera plausible: >=2 camps, camps no buits, i prou lletres.
+    """
+    parts = [p.strip() for p in line.split(delim)]
+    if len(parts) < 2:
+        return False
+    if sum(1 for p in parts if p) < 2:
+        return False
+    letters = sum(c.isalpha() for c in line)
+    ratio = letters / max(len(line), 1)
+    return ratio > 0.15
+
+def _count_fields(line: str, delim: str) -> int:
+    return len(line.split(delim))
+
+def _find_last_table_start(lines: list[str], delim: str):
+    """
+    Retorna l'índex d'inici de l'ÚLTIM bloc taula detectat.
+    Heurística: línia capçalera plausible + almenys 2 línies següents
+    amb el mateix # de camps (ignorant línies buides).
+    """
+    starts = []
+    n = len(lines)
+    for i in range(n):
+        line = lines[i]
+        if not line.strip():
+            continue
+        if not _is_plausible_header(line, delim):
+            continue
+        header_fields = _count_fields(line, delim)
+        lookahead = lines[i+1:i+6]
+        same = 0
+        for la in lookahead:
+            if not la.strip():
+                continue
+            if _count_fields(la, delim) == header_fields:
+                same += 1
+        if same >= 2:
+            starts.append(i)
+    if not starts:
+        return None
+    return starts[-1]
+
 def read_columns_from_upload(file_storage) -> list[str]:
     """
     Llegeix les columnes d'un Excel/CSV des d'un FileStorage (sense guardar a disc).
-    Retorna una llista de noms de columna (strings).
+    - CSV: ignora qualsevol línia que comenci per '#', autodetecta el separador i només llegeix l'header.
+    - Excel: llegeix normalment.
     """
-    filename = file_storage.filename or ""
-    content = file_storage.read()  # bytes
-    buf = io.BytesIO(content)
+    import io
+    import pandas as pd
 
-    # Decideix com llegir segons extensió
-    lower = filename.lower()
-    if lower.endswith(".xlsx") or lower.endswith(".xls"):
-        df = pd.read_excel(buf)  # cal 'openpyxl' per .xlsx
-    elif lower.endswith(".csv"):
-        df = pd.read_csv(buf)
+    filename = (file_storage.filename or "").lower()
+    content = file_storage.read()  # bytes
+
+    if filename.endswith(".csv"):
+        # Només llegim l'header (nrows=0) i ignorem línies que comencin per '#'
+        # sep=None + engine='python' -> autodetecció de separador (coma, punt i coma, tab, etc.)
+        df = pd.read_csv(
+            io.BytesIO(content),
+            nrows=0,
+            comment="#",
+            sep=None,
+            engine="python",
+            on_bad_lines="skip"
+        )
+        return list(df.columns)
+
+    elif filename.endswith(".xlsx") or filename.endswith(".xls"):
+        # Excel: lectura directa. (Si algun dia tens files “metadata” amb '#',
+        # caldria una lògica específica per detectar l'header dins del full).
+        df = pd.read_excel(io.BytesIO(content))
+        return list(df.columns)
+
     else:
         raise ValueError("Format no suportat. Fes servir .xlsx, .xls o .csv")
 
-    # Assegurar-nos que df té columnes
-    if df is None or df.empty:
-        # Si el fitxer no tenia dades, igualment df.columns pot tenir noms;
-        # però si està totalment buit, retorna llista buida.
-        return list(df.columns) if df is not None else []
-
-    return list(df.columns)
 
 # ---------------------------
 # Rutes
@@ -162,12 +233,11 @@ def handle_excel():
     """Rep el fitxer, llegeix les columnes i mostra el formulari amb les checkboxes."""
     file = request.files.get("file")
     if not file or file.filename == "":
-        # Torna a la vista amb error
         return render_template_string(
             TPL_COLUMNS,
             filename="(sense nom)",
             columns=[],
-            error="No s'ha rebut cap fitxer."
+            error="No s'ha ricevut cap fitxer."
         )
 
     try:
@@ -190,8 +260,8 @@ def handle_excel():
 def submit_columns():
     """Rep les columnes seleccionades i mostra un resultat (o continua el teu flux)."""
     filename = request.form.get("filename", "(sense nom)")
-    selected = request.form.getlist("selected_columns")  # llista de valors seleccionats
-    # Aquí pots guardar la selecció, redirigir, o seguir amb el teu processament.
+    selected = request.form.getlist("selected_columns")
+    print(f"Selected: {selected}")
     return render_template_string(TPL_RESULT, filename=filename, selected=selected)
 
 # ---------------------------
