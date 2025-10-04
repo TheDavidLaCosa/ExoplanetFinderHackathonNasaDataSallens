@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, RotateCcw, Plus, Minus, Pause, Download } from 'lucide-react';
+import { Plus, Minus } from 'lucide-react';
 import { fetchExoplanetData, transformExoplanetData, getDatasetStats } from './services/exoplanetService';
-import DataDebugger from './components/DataDebugger';
 
 const ExoplanetPlayground = () => {
   const [epoch, setEpoch] = useState(0);
@@ -36,11 +35,11 @@ const ExoplanetPlayground = () => {
   const trainingInterval = useRef(null);
 
   const datasets = {
-    kepler: { name: 'Kepler Mission', icon: '🔭', description: 'Confirmed Kepler exoplanets' },
-    tess: { name: 'TESS Survey', icon: '🛰️', description: 'TESS candidates' },
-    ps: { name: 'All Confirmed', icon: '🪐', description: 'All confirmed exoplanets' },
-    radialVelocity: { name: 'Radial Velocity', icon: '📡', description: 'Doppler method' },
-    microlensing: { name: 'Microlensing', icon: '🌌', description: 'Gravitational lensing' }
+    kepler: { name: 'Kepler Mission', description: 'Confirmed Kepler exoplanets' },
+    tess: { name: 'TESS Survey', description: 'TESS candidates' },
+    ps: { name: 'All Confirmed', description: 'All confirmed exoplanets' },
+    radialVelocity: { name: 'Radial Velocity', description: 'Doppler method' },
+    microlensing: { name: 'Microlensing', description: 'Gravitational lensing' }
   };
 
   const features = {
@@ -73,30 +72,16 @@ const ExoplanetPlayground = () => {
   // Load real exoplanet data from NASA API
   const loadRealData = async () => {
     setIsLoadingData(true);
-    console.log('🚀 Starting NASA data fetch...');
-    console.log('📡 Dataset:', selectedDataset);
-    
     try {
-      console.log('⏳ Fetching from NASA Exoplanet Archive...');
       const rawData = await fetchExoplanetData(selectedDataset, 200);
-      console.log('✅ Raw data received:', rawData.length, 'records');
-      console.log('📊 Sample raw data:', rawData.slice(0, 2));
-      
       const transformedData = transformExoplanetData(rawData, selectedDataset);
-      console.log('🔄 Data transformed:', transformedData.length, 'points');
-      console.log('📊 Sample transformed data:', transformedData.slice(0, 2));
-      
       const stats = getDatasetStats(transformedData);
-      console.log('📈 Dataset statistics:', stats);
       
       setData(transformedData);
       setDataStats(stats);
-      
-      console.log('✨ SUCCESS! NASA data loaded and ready!');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`Loaded ${transformedData.length} exoplanets from ${selectedDataset} dataset`, stats);
     } catch (error) {
-      console.error('❌ Failed to load exoplanet data:', error);
-      console.error('Error details:', error.message);
+      console.error('Failed to load exoplanet data:', error);
       alert('Failed to load data from NASA Exoplanet Archive. Using synthetic data instead.');
       setData(generateData());
     } finally {
@@ -141,14 +126,16 @@ const ExoplanetPlayground = () => {
         
         const idx = (y * width + x) * 4;
         if (value > 0.5) {
-          imageData.data[idx] = 255;
-          imageData.data[idx + 1] = 152;
-          imageData.data[idx + 2] = 67;
+          // NASA Space Apps NEON YELLOW for exoplanets
+          imageData.data[idx] = 234;
+          imageData.data[idx + 1] = 254;
+          imageData.data[idx + 2] = 7;
           imageData.data[idx + 3] = 100;
         } else {
-          imageData.data[idx] = 74;
-          imageData.data[idx + 1] = 144;
-          imageData.data[idx + 2] = 226;
+          // NASA Space Apps BLUE YONDER for non-exoplanets
+          imageData.data[idx] = 46;
+          imageData.data[idx + 1] = 150;
+          imageData.data[idx + 2] = 245;
           imageData.data[idx + 3] = 100;
         }
       }
@@ -162,7 +149,7 @@ const ExoplanetPlayground = () => {
       
       ctx.beginPath();
       ctx.arc(x, y, 5, 0, 2 * Math.PI);
-      ctx.fillStyle = point.label === 1 ? '#ff9843' : '#4a90e2';
+      ctx.fillStyle = point.label === 1 ? '#EAFE07' : '#2E96F5';
       ctx.fill();
       ctx.strokeStyle = 'white';
       ctx.lineWidth = 2;
@@ -219,11 +206,13 @@ const ExoplanetPlayground = () => {
         ctx.arc(x, y, 15, 0, 2 * Math.PI);
         
         if (layerIndex === 0) {
-          ctx.fillStyle = '#f0ad4e';
+          ctx.fillStyle = '#EAFE07';
         } else if (layerIndex === layers.length - 1) {
-          ctx.fillStyle = '#5cb85c';
+          ctx.fillStyle = '#E43700';
         } else {
-          ctx.fillStyle = '#5bc0de';
+          // Use different colors for hidden layers
+          const colors = ['#2E96F5', '#0960E1', '#0042A6', '#8E1100'];
+          ctx.fillStyle = colors[layerIndex % colors.length];
         }
         
         ctx.fill();
@@ -283,40 +272,79 @@ const ExoplanetPlayground = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div className="min-h-screen p-4" style={{
+      background: '#07173F',
+      backgroundImage: `
+        url(/Orbits.png),
+        radial-gradient(circle at 20% 20%, rgba(9, 96, 225, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(46, 150, 245, 0.1) 0%, transparent 50%),
+        linear-gradient(45deg, transparent 25%, rgba(0, 66, 166, 0.05) 25%, rgba(0, 66, 166, 0.05) 50%, transparent 50%, transparent 75%, rgba(0, 66, 166, 0.05) 75%)
+      `,
+      backgroundSize: 'cover, 200px 200px, 300px 300px, 50px 50px',
+      backgroundPosition: 'center, 0% 0%, 100% 100%, 0% 0%',
+      backgroundRepeat: 'no-repeat, no-repeat, no-repeat, repeat'
+    }}>
       {/* Header */}
-      <div className="bg-gray-800 text-white p-4 mb-4">
-        <h1 className="text-2xl font-bold">NASA Exoplanet Neural Network Playground</h1>
-        <p className="text-sm text-gray-300">Train a neural network to classify exoplanet candidates</p>
+      <div className="text-white py-4 px-4 mb-3" style={{background: 'linear-gradient(135deg, #0042A6 0%, #07173F 100%)'}}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <img 
+              src="/space-apps-logo.png" 
+              alt="NASA Space Apps Challenge" 
+              className="h-12 w-auto"
+            />
+            <div>
+              <h1 className="text-2xl font-black" style={{fontFamily: 'Fira Sans, sans-serif'}}>NASA Exoplanet Neural Network Playground</h1>
+              <p className="text-sm" style={{color: '#EAFE07', fontFamily: 'Overpass, sans-serif'}}>Train a neural network to classify exoplanet candidates</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <img 
+              src="/nasa-motif-logo.png" 
+              alt="NASA Space Apps Motif" 
+              className="h-8 w-auto opacity-80"
+            />
+            <img 
+              src="/nasa-small-logo.png" 
+              alt="NASA Space Apps Small" 
+              className="h-6 w-auto opacity-60"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Control Panel */}
-      <div className="bg-white p-4 mb-4 shadow rounded">
-        <div className="flex items-center gap-4 flex-wrap">
+      <div className="bg-white p-3 mb-3 shadow rounded" style={{borderLeft: '4px solid #EAFE07'}}>
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={handleReset}
-            className="p-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+            className="p-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors flex items-center gap-2"
             title="Reset"
           >
-            <RotateCcw size={20} />
+            <span style={{fontSize: '16px'}}>↻</span>
+            Reset
           </button>
           <button
             onClick={handleTrain}
             className={`p-2 rounded transition-colors ${
-              isTraining ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
+              isTraining ? 'hover:opacity-90' : 'hover:opacity-90'
             } text-white`}
+            style={{
+              backgroundColor: isTraining ? '#E43700' : '#0960E1'
+            }}
             title={isTraining ? 'Pause' : 'Play'}
           >
-            {isTraining ? <Pause size={20} /> : <Play size={20} />}
+            <span style={{fontSize: '16px'}}>{isTraining ? '⏸' : '▶'}</span>
+            {isTraining ? 'Pause' : 'Play'}
           </button>
           
           <div className="border-l pl-4">
-            <label className="text-xs text-gray-600">Epoch</label>
+            <label className="text-xs" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Epoch</label>
             <div className="text-xl font-mono">{epoch.toString().padStart(6, '0')}</div>
           </div>
           
           <div>
-            <label className="text-xs text-gray-600 block">Learning rate</label>
+            <label className="text-xs block" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Learning rate</label>
             <select
               value={learningRate}
               onChange={(e) => setLearningRate(parseFloat(e.target.value))}
@@ -337,7 +365,7 @@ const ExoplanetPlayground = () => {
           </div>
           
           <div>
-            <label className="text-xs text-gray-600 block">Activation</label>
+            <label className="text-xs block" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Activation</label>
             <select
               value={activation}
               onChange={(e) => setActivation(e.target.value)}
@@ -351,7 +379,7 @@ const ExoplanetPlayground = () => {
           </div>
           
           <div>
-            <label className="text-xs text-gray-600 block">Regularization</label>
+            <label className="text-xs block" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Regularization</label>
             <select
               value={regularization}
               onChange={(e) => setRegularization(e.target.value)}
@@ -364,7 +392,7 @@ const ExoplanetPlayground = () => {
           </div>
           
           <div>
-            <label className="text-xs text-gray-600 block">Regularization rate</label>
+            <label className="text-xs block" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Regularization rate</label>
             <select
               value={regularizationRate}
               onChange={(e) => setRegularizationRate(parseFloat(e.target.value))}
@@ -382,7 +410,7 @@ const ExoplanetPlayground = () => {
           </div>
           
           <div className="border-l pl-4">
-            <label className="text-xs text-gray-600 block">Problem type</label>
+            <label className="text-xs block" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Problem type</label>
             <select className="border rounded px-2 py-1">
               <option value="classification">Classification</option>
               <option value="regression">Regression</option>
@@ -392,13 +420,15 @@ const ExoplanetPlayground = () => {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-12 gap-3">
         {/* Left Column - Data */}
-        <div className="col-span-2 bg-white p-4 shadow rounded">
-          <h2 className="font-bold mb-2">DATA</h2>
-          <p className="text-xs text-gray-600 mb-3">Which dataset do you want to use?</p>
+        <div className="col-span-2 bg-white p-3 shadow rounded relative" style={{
+          borderTop: '3px solid #2E96F5'
+        }}>
+          <h2 className="font-bold mb-1" style={{fontFamily: 'Fira Sans, sans-serif'}}>DATA</h2>
+          <p className="text-xs mb-2" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Which dataset do you want to use?</p>
           
-            <div className="space-y-2 mb-4">
+            <div className="space-y-1 mb-3">
             {Object.entries(datasets).map(([key, dataset]) => (
               <label key={key} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
                 <input
@@ -408,10 +438,9 @@ const ExoplanetPlayground = () => {
                   onChange={() => setSelectedDataset(key)}
                   className="w-4 h-4"
                 />
-                <span className="text-2xl">{dataset.icon}</span>
                 <div className="flex-1">
-                  <div className="text-sm font-medium">{dataset.name}</div>
-                  <div className="text-xs text-gray-500">{dataset.description}</div>
+                  <div className="text-sm font-medium" style={{fontFamily: 'Overpass, sans-serif'}}>{dataset.name}</div>
+                  <div className="text-xs" style={{fontFamily: 'Overpass, sans-serif', color: '#4a5568'}}>{dataset.description}</div>
                 </div>
               </label>
             ))}
@@ -420,24 +449,25 @@ const ExoplanetPlayground = () => {
           <button
             onClick={loadRealData}
             disabled={isLoadingData}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 rounded transition-colors mb-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full text-white text-xs py-1 rounded transition-colors mb-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+            style={{backgroundColor: '#2E96F5'}}
           >
-            <Download size={16} />
+            <span style={{fontSize: '14px'}}>⬇</span>
             {isLoadingData ? 'Loading...' : 'Load NASA Data'}
           </button>
           
           {dataStats && (
-            <div className="bg-blue-50 p-2 rounded mb-3 text-xs">
-              <div className="font-semibold mb-1">Dataset Stats:</div>
+            <div className="p-2 rounded mb-2 text-xs" style={{backgroundColor: '#EAFE07', color: '#07173F', fontFamily: 'Overpass, sans-serif'}}>
+              <div className="font-bold mb-1">Dataset Stats:</div>
               <div>Total: {dataStats.total}</div>
               <div>Exoplanets: {dataStats.exoplanets}</div>
               <div>Non-exoplanets: {dataStats.nonExoplanets}</div>
             </div>
           )}
 
-          <div className="border-t pt-3 space-y-3">
+          <div className="border-t pt-2 space-y-2">
             <div>
-              <label className="text-xs text-gray-600">Ratio of training to test data: {trainTestRatio}%</label>
+              <label className="text-xs" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Ratio of training to test data: {trainTestRatio}%</label>
               <input
                 type="range"
                 min="10"
@@ -449,7 +479,7 @@ const ExoplanetPlayground = () => {
             </div>
             
             <div>
-              <label className="text-xs text-gray-600">Noise: {noise}</label>
+              <label className="text-xs" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Noise: {noise}</label>
               <input
                 type="range"
                 min="0"
@@ -461,7 +491,7 @@ const ExoplanetPlayground = () => {
             </div>
             
             <div>
-              <label className="text-xs text-gray-600">Batch size: {batchSize}</label>
+              <label className="text-xs" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Batch size: {batchSize}</label>
               <input
                 type="range"
                 min="1"
@@ -474,7 +504,8 @@ const ExoplanetPlayground = () => {
             
             <button
               onClick={handleReset}
-              className="w-full bg-gray-200 hover:bg-gray-300 text-sm py-2 rounded transition-colors"
+              className="w-full text-white text-sm py-2 rounded transition-colors hover:opacity-90"
+              style={{backgroundColor: '#07173F'}}
             >
               REGENERATE
             </button>
@@ -482,13 +513,15 @@ const ExoplanetPlayground = () => {
         </div>
 
         {/* Middle Left - Features */}
-        <div className="col-span-2 bg-white p-4 shadow rounded">
-          <h2 className="font-bold mb-2">FEATURES</h2>
-          <p className="text-xs text-gray-600 mb-3">Which properties do you want to feed in?</p>
+        <div className="col-span-2 bg-white p-3 shadow rounded" style={{
+          borderTop: '3px solid #0960E1'
+        }}>
+          <h2 className="font-bold mb-1" style={{fontFamily: 'Fira Sans, sans-serif'}}>FEATURES</h2>
+          <p className="text-xs mb-2" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Which properties do you want to feed in?</p>
           
-          <div className="space-y-2">
+          <div className="space-y-1">
             {Object.entries(features).map(([key, feature]) => (
-              <label key={key} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
+              <label key={key} className="flex items-center gap-2 cursor-pointer p-1 hover:bg-gray-50 rounded">
                 <input
                   type="checkbox"
                   checked={selectedFeatures[key]}
@@ -500,19 +533,25 @@ const ExoplanetPlayground = () => {
                 />
                 <div className={`w-10 h-10 flex items-center justify-center rounded text-white font-bold ${
                   selectedFeatures[key] ? 'bg-orange-400' : 'bg-gray-300'
-                }`}>
+                }`}
+                style={{
+                  backgroundColor: selectedFeatures[key] ? '#EAFE07' : undefined,
+                  color: selectedFeatures[key] ? '#07173F' : undefined
+                }}>
                   {feature.label}
                 </div>
-                <span className="text-sm">{feature.name}</span>
+                <span className="text-sm" style={{fontFamily: 'Overpass, sans-serif'}}>{feature.name}</span>
               </label>
             ))}
           </div>
         </div>
 
         {/* Center - Network Visualization */}
-        <div className="col-span-5 bg-white p-4 shadow rounded">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold">HIDDEN LAYERS</h2>
+        <div className="col-span-5 bg-white p-3 shadow rounded" style={{
+          borderTop: '3px solid #0042A6'
+        }}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-bold" style={{fontFamily: 'Fira Sans, sans-serif'}}>HIDDEN LAYERS</h2>
             <div className="flex gap-2">
               <button
                 onClick={removeHiddenLayer}
@@ -534,9 +573,9 @@ const ExoplanetPlayground = () => {
 
           <canvas
             ref={networkCanvasRef}
-            width={500}
-            height={300}
-            className="w-full border rounded mb-4"
+            width={400}
+            height={200}
+            className="w-full border rounded mb-3"
           />
 
           <div className="grid grid-cols-6 gap-2">
@@ -563,28 +602,30 @@ const ExoplanetPlayground = () => {
         </div>
 
         {/* Right - Output & Visualization */}
-        <div className="col-span-3 bg-white p-4 shadow rounded">
-          <h2 className="font-bold mb-2">OUTPUT</h2>
+        <div className="col-span-3 bg-white p-3 shadow rounded" style={{
+          borderTop: '3px solid #E43700'
+        }}>
+          <h2 className="font-bold mb-1" style={{fontFamily: 'Fira Sans, sans-serif'}}>OUTPUT</h2>
           
-          <div className="space-y-1 text-sm mb-4">
+          <div className="space-y-1 text-sm mb-2">
             <div className="flex justify-between">
-              <span className="text-gray-600">Test loss</span>
+              <span style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Test loss</span>
               <span className="font-mono">{testLoss.toFixed(3)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Training loss</span>
+              <span style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Training loss</span>
               <span className="font-mono">{trainLoss.toFixed(3)}</span>
             </div>
           </div>
 
           <canvas
             ref={canvasRef}
-            width={300}
-            height={300}
+            width={250}
+            height={200}
             className="w-full border rounded mb-3"
           />
 
-          <div className="space-y-2 text-sm">
+          <div className="space-y-1 text-sm">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -592,7 +633,7 @@ const ExoplanetPlayground = () => {
                 onChange={(e) => setShowTestData(e.target.checked)}
                 className="w-4 h-4"
               />
-              <span>Show test data</span>
+              <span style={{fontFamily: 'Overpass, sans-serif'}}>Show test data</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -601,15 +642,15 @@ const ExoplanetPlayground = () => {
                 onChange={(e) => setDiscretizeOutput(e.target.checked)}
                 className="w-4 h-4"
               />
-              <span>Discretize output</span>
+              <span style={{fontFamily: 'Overpass, sans-serif'}}>Discretize output</span>
             </label>
           </div>
 
-          <div className="mt-4 pt-3 border-t">
-            <p className="text-xs text-gray-600">Colors shows data, neuron and weight values.</p>
+          <div className="mt-2 pt-2 border-t">
+            <p className="text-xs" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Colors shows data, neuron and weight values.</p>
             <div className="flex items-center gap-2 mt-2">
-              <div className="flex-1 h-3 rounded" style={{background: 'linear-gradient(to right, #ff9843, #4a90e2)'}}></div>
-              <div className="flex justify-between w-full text-xs text-gray-500">
+              <div className="flex-1 h-3 rounded" style={{background: 'linear-gradient(to right, #EAFE07, #2E96F5, #0960E1, #0042A6)'}}></div>
+              <div className="flex justify-between w-full text-xs" style={{fontFamily: 'Overpass, sans-serif', color: '#4a5568'}}>
                 <span>-1</span>
                 <span>0</span>
                 <span>1</span>
@@ -618,15 +659,24 @@ const ExoplanetPlayground = () => {
           </div>
         </div>
       </div>
-
-      {/* Data Verification Section */}
-      <div className="mt-4 bg-white p-4 shadow rounded">
-        <DataDebugger 
-          data={data}
-          dataStats={dataStats}
-          isLoadingData={isLoadingData}
-          selectedDataset={selectedDataset}
-        />
+      
+      {/* Footer */}
+      <div className="mt-6 p-4 text-center" style={{backgroundColor: 'rgba(7, 23, 63, 0.8)'}}>
+        <div className="flex items-center justify-center gap-4">
+          <img 
+            src="/nasa-small-logo.png" 
+            alt="NASA Space Apps" 
+            className="h-6 w-auto opacity-70"
+          />
+          <span className="text-white text-sm" style={{fontFamily: 'Overpass, sans-serif'}}>
+            NASA Space Apps Challenge 2025 | Exoplanet Neural Network Playground
+          </span>
+          <img 
+            src="/nasa-small-logo.png" 
+            alt="NASA Space Apps" 
+            className="h-6 w-auto opacity-70"
+          />
+        </div>
       </div>
     </div>
   );
