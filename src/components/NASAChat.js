@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Sparkles, BarChart3, Database, BookOpen, Rocket } from 'lucide-react';
 import ExoplanetPlayground from '../App';
+import { chatWithGroq } from '../services/groqService';
 
 const NASAChat = () => {
   const [messages, setMessages] = useState([]);
@@ -57,19 +58,38 @@ const NASAChat = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue('');
     setIsTyping(true);
 
-    // Simulate AI response (you can integrate with real AI later)
-    setTimeout(() => {
+    try {
+      // Use Groq API for real AI response
+      const conversationHistory = [...messages, userMessage].map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      }));
+
+      const aiContent = await chatWithGroq(conversationHistory);
+      
       const aiResponse = {
         role: 'assistant',
-        content: generateResponse(inputValue),
+        content: aiContent,
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      // Fallback to local response if Groq fails
+      const aiResponse = {
+        role: 'assistant',
+        content: generateResponse(currentInput),
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiResponse]);
+    } finally {
       setIsTyping(false);
-    }, 1000);
+    }
   };
 
   const generateResponse = (query) => {
