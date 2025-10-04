@@ -1,9 +1,16 @@
 from flask import Flask, request, render_template_string, redirect, url_for
 import pandas as pd
-import io
+import io, uuid, os
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 120 * 1024 * 1024  # 120MB, ajusta si cal
+app.config["MAX_CONTENT_LENGTH"] = 120 * 1024 * 1024  # 120MB
+
+# In-memory store dels uploads (bytes)
+UPLOAD_STORE: dict[str, bytes] = {}
+# Map d'upload_id -> path del CSV net guardat
+CLEANED_CSV_PATHS: dict[str, str] = {}
+
+UPLOAD_DIR = "./uploads"
 
 # ---------------------------
 # Plantilles HTML (inline)
@@ -54,11 +61,15 @@ TPL_COLUMNS = """
     .actions{margin-top:1rem;}
     button{padding:.6rem 1rem; border:1px solid #333; background:#f6f6f6; border-radius:8px; cursor:pointer;}
     .filename{font-weight:bold;}
+    .path{font-family:monospace; color:#444;}
   </style>
 </head>
 <body>
   <h1>Columnes detectades</h1>
-  <p class="meta">Fitxer: <span class="filename">{{ filename }}</span> · Columnes trobades: <strong>{{ columns|length }}</strong></p>
+  <p class="meta">
+    Fitxer: <span class="filename">{{ filename }}</span> · Columnes trobades: <strong>{{ columns|length }}</strong><br>
+    CSV net desat a: <span class="path">{{ cleaned_path or "(no disponible)" }}</span>
+  </p>
 
   {% if error %}
     <p style="color:#b00">{{ error }}</p>
@@ -66,8 +77,9 @@ TPL_COLUMNS = """
 
   {% if columns and columns|length > 0 %}
   <form action="{{ url_for('submit_columns') }}" method="post">
-    <!-- Reenviem el nom de fitxer només informatiu (opcional) -->
+    <!-- IDs ocults per recuperar el fitxer en memòria -->
     <input type="hidden" name="filename" value="{{ filename|e }}">
+    <input type="hidden" name="upload_id" value="{{ upload_id|e }}">
     <div class="grid">
       {% for col in columns %}
         <label class="item">
@@ -122,102 +134,42 @@ TPL_RESULT = """
 # Helpers
 # ---------------------------
 
-def _detect_delimiter(lines: list[str]) -> str:
-    """
-    Intenta detectar el delimitador dominant entre ',', ';', '\\t', '|'
-    mirant la distribució de comptatges per línia (q3).
-    """
-    candidates = [',', ';', '\t', '|']
-    scores = {}
-    for d in candidates:
-        counts = [l.count(d) for l in lines if l.strip()]
-        if not counts:
-            scores[d] = 0
-        else:
-            counts_sorted = sorted(counts)
-            q3 = counts_sorted[int(0.75 * (len(counts_sorted)-1))]
-            scores[d] = q3
-    delim = max(scores, key=scores.get)
-    return delim if scores[delim] > 0 else ','
+def _ensure_upload_dir():
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-def _is_plausible_header(line: str, delim: str) -> bool:
+def read_columns_and_save_clean_csv(filename: str, content: bytes) -> tuple[list[str], str]:
     """
-    Capçalera plausible: >=2 camps, camps no buits, i prou lletres.
-    """
-    parts = [p.strip() for p in line.split(delim)]
-    if len(parts) < 2:
-        return False
-    if sum(1 for p in parts if p) < 2:
-        return False
-    letters = sum(c.isalpha() for c in line)
-    ratio = letters / max(len(line), 1)
-    return ratio > 0.15
+    Llegeix TOT el fitxer (taula en memòria) i desa un CSV net (sense línies amb '#').
+    Retorna (columns, cleaned_csv_path).
 
-def _count_fields(line: str, delim: str) -> int:
-    return len(line.split(delim))
-
-def _find_last_table_start(lines: list[str], delim: str):
+    - CSV: sep="," i comment="#"
+    - Excel: es converteix a CSV (sep=",") per uniformitat
     """
-    Retorna l'índex d'inici de l'ÚLTIM bloc taula detectat.
-    Heurística: línia capçalera plausible + almenys 2 línies següents
-    amb el mateix # de camps (ignorant línies buides).
-    """
-    starts = []
-    n = len(lines)
-    for i in range(n):
-        line = lines[i]
-        if not line.strip():
-            continue
-        if not _is_plausible_header(line, delim):
-            continue
-        header_fields = _count_fields(line, delim)
-        lookahead = lines[i+1:i+6]
-        same = 0
-        for la in lookahead:
-            if not la.strip():
-                continue
-            if _count_fields(la, delim) == header_fields:
-                same += 1
-        if same >= 2:
-            starts.append(i)
-    if not starts:
-        return None
-    return starts[-1]
+    lower = (filename or "").lower()
+    _ensure_upload_dir()
+    cleaned_path = os.path.join(UPLOAD_DIR, f"dataset.csv")
 
-def read_columns_from_upload(file_storage) -> list[str]:
-    """
-    Llegeix les columnes d'un Excel/CSV des d'un FileStorage (sense guardar a disc).
-    - CSV: ignora qualsevol línia que comenci per '#', autodetecta el separador i només llegeix l'header.
-    - Excel: llegeix normalment.
-    """
-    import io
-    import pandas as pd
-
-    filename = (file_storage.filename or "").lower()
-    content = file_storage.read()  # bytes
-
-    if filename.endswith(".csv"):
-        # Només llegim l'header (nrows=0) i ignorem línies que comencin per '#'
-        # sep=None + engine='python' -> autodetecció de separador (coma, punt i coma, tab, etc.)
+    if lower.endswith(".csv"):
+        # Llegeix tot el CSV ja netejant metadades amb '#'
         df = pd.read_csv(
             io.BytesIO(content),
-            nrows=0,
+            sep=",",
             comment="#",
-            sep=None,
             engine="python",
             on_bad_lines="skip"
         )
-        return list(df.columns)
+        # Desa CSV net
+        df.to_csv(cleaned_path, index=False)
+        return list(df.columns), cleaned_path
 
-    elif filename.endswith(".xlsx") or filename.endswith(".xls"):
-        # Excel: lectura directa. (Si algun dia tens files “metadata” amb '#',
-        # caldria una lògica específica per detectar l'header dins del full).
+    elif lower.endswith(".xlsx") or lower.endswith(".xls"):
+        # Excel: llegeix tot i desa en format CSV per consistència
         df = pd.read_excel(io.BytesIO(content))
-        return list(df.columns)
+        df.to_csv(cleaned_path, index=False)
+        return list(df.columns), cleaned_path
 
     else:
         raise ValueError("Format no suportat. Fes servir .xlsx, .xls o .csv")
-
 
 # ---------------------------
 # Rutes
@@ -230,42 +182,70 @@ def upload_excel():
 
 @app.route("/excel", methods=["POST"])
 def handle_excel():
-    """Rep el fitxer, llegeix les columnes i mostra el formulari amb les checkboxes."""
+    """
+    Rep el fitxer, el desa en memòria, llegeix tota la taula netejant '#'
+    i desa un CSV net a ./uploads/{upload_id}_clean.csv. Mostra columnes.
+    """
     file = request.files.get("file")
     if not file or file.filename == "":
         return render_template_string(
             TPL_COLUMNS,
             filename="(sense nom)",
             columns=[],
-            error="No s'ha ricevut cap fitxer."
+            error="No s'ha rebut cap fitxer.",
+            upload_id="",
+            cleaned_path=""
         )
 
     try:
-        columns = read_columns_from_upload(file)
+        content = file.read()  # bytes del fitxer
+        upload_id = str(uuid.uuid4())
+        UPLOAD_STORE[upload_id] = content
+
+        columns, cleaned_path = read_columns_and_save_clean_csv(file.filename, content)
+        CLEANED_CSV_PATHS[upload_id] = cleaned_path
+
         return render_template_string(
             TPL_COLUMNS,
             filename=file.filename,
             columns=columns,
-            error=None
+            error=None,
+            upload_id=upload_id,
+            cleaned_path=cleaned_path
         )
     except Exception as e:
         return render_template_string(
             TPL_COLUMNS,
-            filename=file.filename,
+            filename=getattr(file, "filename", "(sense nom)"),
             columns=[],
-            error=f"Error en llegir el fitxer: {e}"
+            error=f"Error en llegir/guardar el fitxer: {e}",
+            upload_id="",
+            cleaned_path=""
         )
 
 @app.route("/excel/submit", methods=["POST"])
 def submit_columns():
-    """Rep les columnes seleccionades i mostra un resultat (o continua el teu flux)."""
+    """
+    Rep les columnes seleccionades. Si cal continuar el processament,
+    pots reobrir el CSV net amb CLEANED_CSV_PATHS[upload_id].
+    """
     filename = request.form.get("filename", "(sense nom)")
     selected = request.form.getlist("selected_columns")
-    print(f"Selected: {selected}")
+    upload_id = request.form.get("upload_id", "")
+
+    cleaned_path = CLEANED_CSV_PATHS.get(upload_id, "")
+    # Exemple: llegir el CSV net i filtrar columnes seleccionades
+    # if cleaned_path and os.path.exists(cleaned_path):
+    #     df = pd.read_csv(cleaned_path)
+    #     if selected:
+    #         df = df[selected]
+    #     # ... processar df o desar una nova sortida ...
+
     return render_template_string(TPL_RESULT, filename=filename, selected=selected)
 
 # ---------------------------
 # Main
 # ---------------------------
 if __name__ == "__main__":
+    _ensure_upload_dir()
     app.run(host="0.0.0.0", port=4000, debug=True)
