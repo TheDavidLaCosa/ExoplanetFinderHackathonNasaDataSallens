@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, BarChart3, Database, BookOpen, Rocket } from 'lucide-react';
+import { Send, Sparkles, BarChart3, Database, BookOpen, Rocket, FileSpreadsheet } from 'lucide-react';
 import ExoplanetPlayground from '../App';
+import DataAnalyzer from './DataAnalyzer';
 import { chatWithGroq } from '../services/groqService';
 
 const NASAChat = () => {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [currentView, setCurrentView] = useState('chat'); // 'chat', 'dashboard', 'data', 'nwiki'
+  const [currentView, setCurrentView] = useState('chat'); // 'chat', 'dashboard', 'data', 'nwiki', 'analyzer'
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
 
@@ -19,6 +20,12 @@ const NASAChat = () => {
   }, [messages]);
 
   const suggestedPrompts = [
+    {
+      icon: <FileSpreadsheet size={20} />,
+      text: "Analyze Data",
+      description: "Upload and analyze your own datasets",
+      action: () => setCurrentView('analyzer')
+    },
     {
       icon: <BarChart3 size={20} />,
       text: "Open Dashboard",
@@ -120,6 +127,10 @@ const NASAChat = () => {
   };
 
   // Render different views
+  if (currentView === 'analyzer') {
+    return <DataAnalyzer />;
+  }
+
   if (currentView === 'dashboard') {
     return (
       <div className="min-h-screen bg-gray-50">
