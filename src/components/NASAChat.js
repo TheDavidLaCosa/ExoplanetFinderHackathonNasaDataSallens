@@ -123,36 +123,89 @@ const NASAChat = () => {
   if (currentView === 'dashboard') {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="bg-gradient-to-r from-blue-900 to-purple-900 text-white p-4 shadow-lg">
+        {/* Main Header */}
+        <div className="text-white py-6 px-6" style={{background: '#07173F'}}>
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setCurrentView('chat')}
-                className="flex items-center gap-2 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors"
-              >
-                <Rocket size={24} />
-                <span className="font-bold text-xl">NASA DataPilot</span>
-              </button>
+            {/* Left Side - Logo and Title */}
+            <div className="flex items-center gap-6">
+              <img 
+                src="/space-apps-logo-white.png" 
+                alt="NASA Space Apps Challenge" 
+                className="h-16 w-auto"
+              />
+              <div>
+                <h1 className="text-3xl font-black leading-tight" style={{fontFamily: 'Fira Sans, sans-serif'}}>
+                  NASA Exoplanet Neural Network Playground
+                </h1>
+                <p className="text-lg mt-1" style={{color: '#EAFE07', fontFamily: 'Overpass, sans-serif'}}>
+                  Train a neural network to classify exoplanet candidates
+                </p>
+              </div>
             </div>
-            <div className="flex gap-2">
+            
+            {/* Right Side - Navigation */}
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setCurrentView('chat')}
-                className="px-4 py-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                }}
               >
                 Chat
               </button>
-              <button className="px-4 py-2 bg-white/20 rounded-lg">
+              <button 
+                onClick={() => setCurrentView('dashboard')}
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                }}
+              >
                 Dashboard
               </button>
               <button
                 onClick={() => setCurrentView('data')}
-                className="px-4 py-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                }}
               >
                 Data
               </button>
               <button
                 onClick={() => setCurrentView('nwiki')}
-                className="px-4 py-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                }}
               >
                 NWiki
               </button>
@@ -167,36 +220,90 @@ const NASAChat = () => {
   if (currentView === 'data') {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="bg-gradient-to-r from-blue-900 to-purple-900 text-white p-4 shadow-lg">
+        {/* Main Header */}
+        <div className="text-white py-6 px-6" style={{background: '#07173F'}}>
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setCurrentView('chat')}
-                className="flex items-center gap-2 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors"
-              >
-                <Rocket size={24} />
-                <span className="font-bold text-xl">NASA DataPilot</span>
-              </button>
+            {/* Left Side - Logo and Title */}
+            <div className="flex items-center gap-6">
+              <img 
+                src="/space-apps-logo-white.png" 
+                alt="NASA Space Apps Challenge" 
+                className="h-16 w-auto"
+              />
+              <div>
+                <h1 className="text-3xl font-black leading-tight" style={{fontFamily: 'Fira Sans, sans-serif'}}>
+                  NASA Exoplanet Neural Network Playground
+                </h1>
+                <p className="text-lg mt-1" style={{color: '#EAFE07', fontFamily: 'Overpass, sans-serif'}}>
+                  Train a neural network to classify exoplanet candidates
+                </p>
+              </div>
             </div>
-            <div className="flex gap-2">
+            
+            {/* Right Side - Navigation */}
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setCurrentView('chat')}
-                className="px-4 py-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                }}
               >
                 Chat
               </button>
-              <button
+              <button 
                 onClick={() => setCurrentView('dashboard')}
-                className="px-4 py-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                }}
               >
                 Dashboard
               </button>
-              <button className="px-4 py-2 bg-white/20 rounded-lg">
+              <button
+                onClick={() => setCurrentView('data')}
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px',
+                  backgroundColor: '#0960E1'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0042A6';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+              >
                 Data
               </button>
               <button
                 onClick={() => setCurrentView('nwiki')}
-                className="px-4 py-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                }}
               >
                 NWiki
               </button>
@@ -236,37 +343,91 @@ const NASAChat = () => {
   if (currentView === 'nwiki') {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="bg-gradient-to-r from-blue-900 to-purple-900 text-white p-4 shadow-lg">
+        {/* Main Header */}
+        <div className="text-white py-6 px-6" style={{background: '#07173F'}}>
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setCurrentView('chat')}
-                className="flex items-center gap-2 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors"
-              >
-                <Rocket size={24} />
-                <span className="font-bold text-xl">NASA DataPilot</span>
-              </button>
+            {/* Left Side - Logo and Title */}
+            <div className="flex items-center gap-6">
+              <img 
+                src="/space-apps-logo-white.png" 
+                alt="NASA Space Apps Challenge" 
+                className="h-16 w-auto"
+              />
+              <div>
+                <h1 className="text-3xl font-black leading-tight" style={{fontFamily: 'Fira Sans, sans-serif'}}>
+                  NASA Exoplanet Neural Network Playground
+                </h1>
+                <p className="text-lg mt-1" style={{color: '#EAFE07', fontFamily: 'Overpass, sans-serif'}}>
+                  Train a neural network to classify exoplanet candidates
+                </p>
+              </div>
             </div>
-            <div className="flex gap-2">
+            
+            {/* Right Side - Navigation */}
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setCurrentView('chat')}
-                className="px-4 py-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                }}
               >
                 Chat
               </button>
-              <button
+              <button 
                 onClick={() => setCurrentView('dashboard')}
-                className="px-4 py-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                }}
               >
                 Dashboard
               </button>
               <button
                 onClick={() => setCurrentView('data')}
-                className="px-4 py-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                }}
               >
                 Data
               </button>
-              <button className="px-4 py-2 bg-white/20 rounded-lg">
+              <button
+                onClick={() => setCurrentView('nwiki')}
+                className="text-white px-6 py-3 rounded-lg transition-all font-semibold"
+                style={{
+                  fontFamily: 'Overpass, sans-serif',
+                  fontSize: '16px',
+                  backgroundColor: '#0960E1'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0042A6';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
+                }}
+              >
                 NWiki
               </button>
             </div>
@@ -323,27 +484,31 @@ const NASAChat = () => {
 
   // Main chat view
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen" style={{
+        backgroundColor: '#07173F'
+      }}>
       {messages.length === 0 ? (
         /* Welcome screen - centered layout */
-        <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center min-h-screen">
-          {/* Logo and Title */}
+        <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center min-h-screen p-4">
+          {/* NASA Space Apps Logo */}
           <div className="text-center mb-12">
             <div className="mb-6 flex justify-center">
-              <div className="w-24 h-24 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center border-2 border-white/20">
-                <Rocket size={48} className="text-white" />
-              </div>
+              <img 
+                src="/space-apps-logo-white.png" 
+                alt="NASA Space Apps Challenge" 
+                className="h-20 w-auto"
+              />
             </div>
-            <h1 className="text-5xl font-bold text-white mb-3">
+            <h1 className="text-5xl font-bold mb-3" style={{fontFamily: 'Fira Sans, sans-serif', color: '#FFFFFF'}}>
               NASA DataPilot
             </h1>
-            <p className="text-lg text-gray-400">
+            <p className="text-lg" style={{color: '#FFFFFF', fontFamily: 'Overpass, sans-serif'}}>
               Your AI copilot for NASA data analysis
             </p>
           </div>
 
           {/* Search Box */}
-          <div className="w-full max-w-3xl mb-8">
+          <div className="w-full max-w-3xl mb-4">
             <div className="relative">
               <input
                 type="text"
@@ -351,47 +516,86 @@ const NASAChat = () => {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask a question..."
-                className="w-full bg-zinc-900 text-white placeholder-gray-500 px-6 py-4 pr-14 rounded-xl border border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors text-lg"
+                className="w-full text-black placeholder-gray-600 px-6 py-4 pr-14 rounded-xl focus:outline-none transition-colors text-lg"
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  fontFamily: 'Overpass, sans-serif'
+                }}
               />
               <button
                 onClick={handleSend}
                 disabled={!inputValue.trim()}
-                className="absolute right-3 top-1/2 -translate-y-1/2 bg-teal-600 hover:bg-teal-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white p-2.5 rounded-lg transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white p-2.5 rounded-lg transition-colors"
+                style={{
+                  backgroundColor: inputValue.trim() ? '#E43700' : '#07173F'
+                }}
+                onMouseEnter={(e) => {
+                  if (inputValue.trim()) {
+                    e.target.style.backgroundColor = '#8E1100';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (inputValue.trim()) {
+                    e.target.style.backgroundColor = '#E43700';
+                  }
+                }}
               >
                 <Send size={20} />
               </button>
             </div>
           </div>
 
-          {/* Action buttons - horizontally scrolling */}
-          <div className="w-full max-w-4xl mb-8">
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-              {suggestedPrompts.map((prompt, idx) => (
-                <button
-                  key={idx}
-                  onClick={prompt.action}
-                  className="flex items-center gap-3 bg-zinc-900 hover:bg-zinc-800 text-white px-5 py-3 rounded-xl transition-all border border-zinc-800 flex-shrink-0"
-                >
-                  <div className="text-teal-500">{prompt.icon}</div>
-                  <div className="text-left">
-                    <div className="font-medium text-sm">{prompt.text}</div>
-                    <div className="text-xs text-gray-500">{prompt.description}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick prompt suggestions */}
-          <div className="w-full max-w-3xl">
+          {/* Quick prompt suggestions - moved under search bar */}
+          <div className="w-full max-w-3xl mb-8">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {quickPrompts.map((prompt, idx) => (
                 <button
                   key={idx}
                   onClick={() => setInputValue(prompt)}
-                  className="bg-zinc-900 hover:bg-zinc-800 text-white p-3 rounded-lg text-sm transition-all border border-zinc-800 text-left"
+                  className="text-white p-3 rounded-lg text-sm transition-all text-left"
+                  style={{
+                    backgroundColor: '#0960E1',
+                    fontFamily: 'Overpass, sans-serif'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#0042A6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = '#0960E1';
+                  }}
                 >
                   {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Action buttons - horizontally scrolling */}
+          <div className="w-full max-w-5xl">
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              {suggestedPrompts.map((prompt, idx) => (
+                <button
+                  key={idx}
+                  onClick={prompt.action}
+                  className="flex items-center gap-3 text-black px-6 py-4 rounded-xl transition-all flex-shrink-0"
+                  style={{
+                    backgroundColor: '#EAFE07',
+                    fontFamily: 'Overpass, sans-serif',
+                    minWidth: '260px',
+                    maxWidth: '280px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#D4E600';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = '#EAFE07';
+                  }}
+                >
+                  <div style={{color: '#07173F'}}>{prompt.icon}</div>
+                  <div className="text-left flex-1 min-w-0">
+                    <div className="font-bold text-base" style={{fontFamily: 'Fira Sans, sans-serif'}}>{prompt.text}</div>
+                    <div className="text-xs leading-tight break-words" style={{color: '#07173F', fontFamily: 'Overpass, sans-serif'}}>{prompt.description}</div>
+                  </div>
                 </button>
               ))}
             </div>
@@ -400,24 +604,38 @@ const NASAChat = () => {
       ) : (
         /* Chat view with messages */
         <div className="w-full h-screen flex flex-col">
-          {/* Header */}
-          <div className="bg-zinc-900 border-b border-zinc-800 p-4">
+            {/* Header */}
+            <div className="p-4" style={{backgroundColor: '#07173F'}}>
             <div className="max-w-4xl mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
-                  <Rocket size={20} className="text-white" />
+                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{backgroundColor: '#0042A6'}}>
+                  <img 
+                    src="/space-apps-logo-white.png" 
+                    alt="NASA Space Apps" 
+                    className="h-6 w-auto"
+                  />
                 </div>
                 <div>
-                  <h1 className="text-lg font-semibold text-white">NASA DataPilot</h1>
-                  <p className="text-xs text-gray-400">AI Copilot</p>
+                  <h1 className="text-lg font-semibold text-white" style={{fontFamily: 'Fira Sans, sans-serif'}}>NASA DataPilot</h1>
+                  <p className="text-xs text-white" style={{color: '#EAFE07', fontFamily: 'Overpass, sans-serif'}}>AI Copilot</p>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setMessages([]);
-                  setInputValue('');
+                <button
+                  onClick={() => {
+                    setMessages([]);
+                    setInputValue('');
+                  }}
+                  className="text-white text-sm px-4 py-2 rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: '#2E96F5',
+                    fontFamily: 'Overpass, sans-serif'
+                  }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#0960E1';
                 }}
-                className="text-gray-400 hover:text-white text-sm"
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#2E96F5';
+                }}
               >
                 New Chat
               </button>
@@ -425,7 +643,7 @@ const NASAChat = () => {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 bg-black">
+          <div className="flex-1 overflow-y-auto p-6" style={{backgroundColor: '#07173F'}}>
             <div className="max-w-4xl mx-auto space-y-6">
               {messages.map((message, idx) => (
                 <div
@@ -433,11 +651,11 @@ const NASAChat = () => {
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-3xl p-4 rounded-2xl ${
-                      message.role === 'user'
-                        ? 'bg-teal-600 text-white'
-                        : 'bg-zinc-900 text-white border border-zinc-800'
-                    }`}
+                    className={`max-w-3xl p-4 rounded-2xl text-white`}
+                    style={{
+                      backgroundColor: message.role === 'user' ? '#E43700' : '#0042A6',
+                      fontFamily: 'Overpass, sans-serif'
+                    }}
                   >
                     <p className="whitespace-pre-wrap">{message.content}</p>
                   </div>
@@ -445,11 +663,11 @@ const NASAChat = () => {
               ))}
               {isTyping && (
                 <div className="flex justify-start">
-                  <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800">
+                  <div className="p-4 rounded-2xl" style={{backgroundColor: '#0042A6'}}>
                     <div className="flex gap-2">
-                      <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                      <div className="w-2 h-2 rounded-full animate-bounce" style={{backgroundColor: '#EAFE07'}}></div>
+                      <div className="w-2 h-2 rounded-full animate-bounce" style={{ animationDelay: '0.2s', backgroundColor: '#EAFE07' }}></div>
+                      <div className="w-2 h-2 rounded-full animate-bounce" style={{ animationDelay: '0.4s', backgroundColor: '#EAFE07' }}></div>
                     </div>
                   </div>
                 </div>
@@ -459,7 +677,7 @@ const NASAChat = () => {
           </div>
 
           {/* Input area */}
-          <div className="bg-black border-t border-zinc-800 p-4">
+          <div className="p-4" style={{backgroundColor: '#07173F', borderTop: '2px solid #EAFE07'}}>
             <div className="max-w-4xl mx-auto">
               {/* Action buttons */}
               <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide">
@@ -467,9 +685,19 @@ const NASAChat = () => {
                   <button
                     key={idx}
                     onClick={prompt.action}
-                    className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white px-4 py-2 rounded-lg transition-all border border-zinc-800 flex-shrink-0"
+                    className="flex items-center gap-2 text-black px-4 py-2 rounded-lg transition-all flex-shrink-0"
+                    style={{
+                      backgroundColor: '#EAFE07',
+                      fontFamily: 'Overpass, sans-serif'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = '#D4E600';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = '#EAFE07';
+                    }}
                   >
-                    <div className="text-teal-500">{prompt.icon}</div>
+                    <div style={{color: '#07173F'}}>{prompt.icon}</div>
                     <span className="text-sm font-medium">{prompt.text}</span>
                   </button>
                 ))}
@@ -483,12 +711,29 @@ const NASAChat = () => {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Ask a question..."
-                  className="w-full bg-zinc-900 text-white placeholder-gray-500 px-6 py-4 pr-14 rounded-xl border border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors"
+                  className="w-full text-black placeholder-gray-600 px-6 py-4 pr-14 rounded-xl focus:outline-none transition-colors"
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    fontFamily: 'Overpass, sans-serif'
+                  }}
                 />
                 <button
                   onClick={handleSend}
                   disabled={!inputValue.trim()}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-teal-600 hover:bg-teal-700 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white p-2.5 rounded-lg transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white p-2.5 rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: inputValue.trim() ? '#E43700' : '#07173F'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (inputValue.trim()) {
+                      e.target.style.backgroundColor = '#8E1100';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (inputValue.trim()) {
+                      e.target.style.backgroundColor = '#E43700';
+                    }
+                  }}
                 >
                   <Send size={20} />
                 </button>
@@ -507,6 +752,15 @@ const NASAChat = () => {
           scrollbar-width: none;
         }
       `}</style>
+      
+      {/* Footer with NASA logo */}
+      <div className="fixed bottom-4 right-4 opacity-30 hover:opacity-60 transition-opacity">
+        <img 
+          src="/nasa-small-logo.png" 
+          alt="NASA Space Apps" 
+          className="h-8 w-auto"
+        />
+      </div>
     </div>
   );
 };

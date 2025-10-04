@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Minus } from 'lucide-react';
+import { ArrowCounterClockwise, Play, Pause, Download } from 'phosphor-react';
 import { fetchExoplanetData, transformExoplanetData, getDatasetStats } from './services/exoplanetService';
 
 const ExoplanetPlayground = () => {
@@ -151,8 +152,8 @@ const ExoplanetPlayground = () => {
       ctx.arc(x, y, 5, 0, 2 * Math.PI);
       ctx.fillStyle = point.label === 1 ? '#EAFE07' : '#2E96F5';
       ctx.fill();
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 1;
       ctx.stroke();
     });
   }, [data, epoch]);
@@ -216,8 +217,8 @@ const ExoplanetPlayground = () => {
         }
         
         ctx.fill();
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 1;
         ctx.stroke();
       }
     });
@@ -273,68 +274,33 @@ const ExoplanetPlayground = () => {
 
   return (
     <div className="min-h-screen p-4" style={{
-      background: '#07173F',
-      backgroundImage: `
-        url(/Orbits.png),
-        radial-gradient(circle at 20% 20%, rgba(9, 96, 225, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(46, 150, 245, 0.1) 0%, transparent 50%),
-        linear-gradient(45deg, transparent 25%, rgba(0, 66, 166, 0.05) 25%, rgba(0, 66, 166, 0.05) 50%, transparent 50%, transparent 75%, rgba(0, 66, 166, 0.05) 75%)
-      `,
-      backgroundSize: 'cover, 200px 200px, 300px 300px, 50px 50px',
-      backgroundPosition: 'center, 0% 0%, 100% 100%, 0% 0%',
-      backgroundRepeat: 'no-repeat, no-repeat, no-repeat, repeat'
+      backgroundColor: '#07173F'
     }}>
-      {/* Header */}
-      <div className="text-white py-4 px-4 mb-3" style={{background: 'linear-gradient(135deg, #0042A6 0%, #07173F 100%)'}}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img 
-              src="/space-apps-logo.png" 
-              alt="NASA Space Apps Challenge" 
-              className="h-12 w-auto"
-            />
-            <div>
-              <h1 className="text-2xl font-black" style={{fontFamily: 'Fira Sans, sans-serif'}}>NASA Exoplanet Neural Network Playground</h1>
-              <p className="text-sm" style={{color: '#EAFE07', fontFamily: 'Overpass, sans-serif'}}>Train a neural network to classify exoplanet candidates</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <img 
-              src="/nasa-motif-logo.png" 
-              alt="NASA Space Apps Motif" 
-              className="h-8 w-auto opacity-80"
-            />
-            <img 
-              src="/nasa-small-logo.png" 
-              alt="NASA Space Apps Small" 
-              className="h-6 w-auto opacity-60"
-            />
-          </div>
-        </div>
-      </div>
 
       {/* Control Panel */}
-      <div className="bg-white p-3 mb-3 shadow rounded" style={{borderLeft: '4px solid #EAFE07'}}>
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="bg-white p-4 mb-4 shadow-lg rounded-lg" style={{borderLeft: '4px solid #EAFE07'}}>
+        <div className="flex items-center gap-4 flex-wrap">
           <button
             onClick={handleReset}
-            className="p-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2 text-gray-700 font-medium"
+            style={{fontFamily: 'Overpass, sans-serif'}}
             title="Reset"
           >
-            <span style={{fontSize: '16px'}}>↻</span>
+            <ArrowCounterClockwise size={18} />
             Reset
           </button>
           <button
             onClick={handleTrain}
-            className={`p-2 rounded transition-colors ${
+            className={`px-4 py-2 rounded-lg transition-colors text-white font-medium flex items-center gap-2 ${
               isTraining ? 'hover:opacity-90' : 'hover:opacity-90'
-            } text-white`}
+            }`}
             style={{
-              backgroundColor: isTraining ? '#E43700' : '#0960E1'
+              backgroundColor: isTraining ? '#E43700' : '#0960E1',
+              fontFamily: 'Overpass, sans-serif'
             }}
             title={isTraining ? 'Pause' : 'Play'}
           >
-            <span style={{fontSize: '16px'}}>{isTraining ? '⏸' : '▶'}</span>
+            {isTraining ? <Pause size={18} /> : <Play size={18} />}
             {isTraining ? 'Pause' : 'Play'}
           </button>
           
@@ -420,12 +386,12 @@ const ExoplanetPlayground = () => {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-12 gap-3">
+      <div className="grid grid-cols-12 gap-4">
         {/* Left Column - Data */}
-        <div className="col-span-2 bg-white p-3 shadow rounded relative" style={{
-          borderTop: '3px solid #2E96F5'
+        <div className="col-span-2 bg-white p-4 shadow-lg rounded-lg relative" style={{
+          borderTop: '4px solid #EAFE07'
         }}>
-          <h2 className="font-bold mb-1" style={{fontFamily: 'Fira Sans, sans-serif'}}>DATA</h2>
+          <h2 className="font-bold mb-2 text-lg" style={{fontFamily: 'Fira Sans, sans-serif', color: '#07173F'}}>DATA</h2>
           <p className="text-xs mb-2" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Which dataset do you want to use?</p>
           
             <div className="space-y-1 mb-3">
@@ -449,10 +415,10 @@ const ExoplanetPlayground = () => {
           <button
             onClick={loadRealData}
             disabled={isLoadingData}
-            className="w-full text-white text-xs py-1 rounded transition-colors mb-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-            style={{backgroundColor: '#2E96F5'}}
+            className="w-full text-white text-sm py-2 rounded-lg transition-colors mb-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 font-medium"
+            style={{backgroundColor: '#2E96F5', fontFamily: 'Overpass, sans-serif'}}
           >
-            <span style={{fontSize: '14px'}}>⬇</span>
+            <Download size={18} />
             {isLoadingData ? 'Loading...' : 'Load NASA Data'}
           </button>
           
@@ -513,10 +479,10 @@ const ExoplanetPlayground = () => {
         </div>
 
         {/* Middle Left - Features */}
-        <div className="col-span-2 bg-white p-3 shadow rounded" style={{
-          borderTop: '3px solid #0960E1'
+        <div className="col-span-2 bg-white p-4 shadow-lg rounded-lg" style={{
+          borderTop: '4px solid #EAFE07'
         }}>
-          <h2 className="font-bold mb-1" style={{fontFamily: 'Fira Sans, sans-serif'}}>FEATURES</h2>
+          <h2 className="font-bold mb-2 text-lg" style={{fontFamily: 'Fira Sans, sans-serif', color: '#07173F'}}>FEATURES</h2>
           <p className="text-xs mb-2" style={{fontFamily: 'Overpass, sans-serif', color: '#2d3748'}}>Which properties do you want to feed in?</p>
           
           <div className="space-y-1">
@@ -531,7 +497,7 @@ const ExoplanetPlayground = () => {
                   })}
                   className="w-4 h-4"
                 />
-                <div className={`w-10 h-10 flex items-center justify-center rounded text-white font-bold ${
+                <div className={`w-10 h-10 flex items-center justify-center rounded text-white font-bold border border-black ${
                   selectedFeatures[key] ? 'bg-orange-400' : 'bg-gray-300'
                 }`}
                 style={{
@@ -547,11 +513,11 @@ const ExoplanetPlayground = () => {
         </div>
 
         {/* Center - Network Visualization */}
-        <div className="col-span-5 bg-white p-3 shadow rounded" style={{
-          borderTop: '3px solid #0042A6'
+        <div className="col-span-5 bg-white p-4 shadow-lg rounded-lg" style={{
+          borderTop: '4px solid #EAFE07'
         }}>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-bold" style={{fontFamily: 'Fira Sans, sans-serif'}}>HIDDEN LAYERS</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-lg" style={{fontFamily: 'Fira Sans, sans-serif', color: '#07173F'}}>HIDDEN LAYERS</h2>
             <div className="flex gap-2">
               <button
                 onClick={removeHiddenLayer}
@@ -602,10 +568,10 @@ const ExoplanetPlayground = () => {
         </div>
 
         {/* Right - Output & Visualization */}
-        <div className="col-span-3 bg-white p-3 shadow rounded" style={{
-          borderTop: '3px solid #E43700'
+        <div className="col-span-3 bg-white p-4 shadow-lg rounded-lg" style={{
+          borderTop: '4px solid #E43700'
         }}>
-          <h2 className="font-bold mb-1" style={{fontFamily: 'Fira Sans, sans-serif'}}>OUTPUT</h2>
+          <h2 className="font-bold mb-2 text-lg" style={{fontFamily: 'Fira Sans, sans-serif', color: '#07173F'}}>OUTPUT</h2>
           
           <div className="space-y-1 text-sm mb-2">
             <div className="flex justify-between">

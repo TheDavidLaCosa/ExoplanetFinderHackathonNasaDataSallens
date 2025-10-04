@@ -2,7 +2,13 @@ import Groq from "groq-sdk";
 
 // Initialize Groq client
 // Note: In production, use environment variables for the API key
-const apiKey = process.env.REACT_APP_GROQ_API_KEY || process.env.GROQ_API_KEY;
+const apiKey = process.env.REACT_APP_GROQ_API_KEY || process.env.GROQ_API_KEY || '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';
+
+// Debug logging
+console.log('Environment variables check:');
+console.log('REACT_APP_GROQ_API_KEY:', process.env.REACT_APP_GROQ_API_KEY);
+console.log('GROQ_API_KEY:', process.env.GROQ_API_KEY);
+console.log('Final apiKey:', apiKey);
 
 const groq = apiKey ? new Groq({
   apiKey: apiKey,
