@@ -139,15 +139,13 @@ def pca(data, model,level):
 
     return data, dataset_pca, model
 
-def process_data (columns , level, target):  
+def process_data (cols , level, target):  
     dataset = pd.read_csv("./uploads/dataset.csv", sep = ",")
-    target='a'#dataset[target]
-    dataset.drop(columns=target)
-
-    df_filtrado = dataset.drop(columns=[col for col in columns if col not in dataset.columns])
-    print(df_filtrado.head())
-
+    y=dataset[target]
+    dataset.drop(columns=[target], inplace=True)
+    df_filtrado = dataset.drop(columns=[col for col in cols if col not in dataset.columns and not target])
+    
     d,d_pca, m, = pca (df_filtrado,'xgboost',level)
-    #d.to_csv('data.csv')
-    #d_pca.to_csv('data_pca.csv')
-    return d,d_pca,m,target
+    d.to_csv('data.csv')
+    d_pca.to_csv('data_pca.csv')
+    return d,d_pca,m,y
