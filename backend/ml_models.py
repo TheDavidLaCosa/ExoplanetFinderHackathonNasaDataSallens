@@ -44,12 +44,27 @@ class ExoplanetModelSelector:
 		"""
 		Creating Random Forest optimized
 		"""
+		# Normaliza a numpy para chequeos robustos (funciona con DataFrame/Series o ndarray)
+		X_values = np.asarray(X_train)
+		y_values = np.asarray(y_train)
+		assert np.isfinite(X_values).all() and not np.isnan(X_values).any(), "X_train contiene Inf/NaN"
+		assert np.isfinite(y_values).all() and not np.isnan(y_values).any(), "y_train contiene Inf/NaN"
+
 		def objective(trial):
+			n_samples = len(y_values)
+			# Límites seguros para datasets pequeños
+			min_leaf_max = max(1, min(500, n_samples // 50))
+			min_samples_leaf = trial.suggest_int('min_samples_leaf', 1, min_leaf_max)
+			min_split_max = max(2, min(2000, n_samples // 20))
+			min_split_lower = max(2, 2 * min_samples_leaf)
+			if min_split_max < min_split_lower:
+				min_split_max = min_split_lower
+			min_samples_split = trial.suggest_int('min_samples_split', min_split_lower, min_split_max)
 			params = {
 				'n_estimators': trial.suggest_int('n_estimators', 100, 500, step=50),
-				'max_depth': trial.suggest_int('max_depth', 5, 30),
-				'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
-				'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
+				'max_depth': trial.suggest_int('max_depth', 3, 30),
+				'min_samples_leaf': min_samples_leaf,
+				'min_samples_split': min_samples_split,
 				'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2', 0.5, 0.8]),
 				'bootstrap': trial.suggest_categorical('bootstrap', [True, False]),
 				'class_weight': 'balanced',
@@ -57,9 +72,15 @@ class ExoplanetModelSelector:
 				'n_jobs': -1
 			}
 			model = RandomForestClassifier(**params)
-			cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
-			scores = cross_val_score(model, X_train, y_train, cv=cv, scoring='roc_auc', n_jobs=-1)
-			return scores.mean()
+			# Validación estratificada segura
+			min_class_count = int(np.min(np.bincount(y_values)))
+			if min_class_count < 2:
+				return 0.0
+			n_splits_d = min(3, min_class_count)
+			cv = StratifiedKFold(n_splits=n_splits_d, shuffle=True, random_state=42)
+			scores = cross_val_score(model, X_values, y_values, cv=cv, scoring='roc_auc', n_jobs=-1)
+			scores = scores[~np.isnan(scores)]
+			return scores.mean() if len(scores) > 0 else 0.0
 
 		study = optuna.create_study(
 			direction='maximize',  # Max AUC
@@ -69,12 +90,16 @@ class ExoplanetModelSelector:
 		
 		def progress_callback(study, trial):
 			if trial.number % 10 == 0:
-				print(f"  Trial {trial.number}: Best AUC = {study.best_value:.4f}")
+				try:
+					best_auc = study.best_value
+				except ValueError:
+					best_auc = float('nan')
+				print(f"  Trial {trial.number}: Best AUC = {best_auc:.4f}")
 				
 		study.optimize(objective, n_trials=50, callbacks=[progress_callback])
 		self.best_params['rf'] = study.best_params
 		self.study_results['rf'] = study
-		params = study.best_paramas
+		params = study.best_params
 		params['class_weight'] = 'balanced'
 		params['random_state'] = 42
 		params['n_jobs'] = -1
@@ -118,8 +143,13 @@ class ExoplanetModelSelector:
 		
 		def progress_callback(study, trial):
 			if trial.number % 10 == 0:
-				print(f"  Trial {trial.number}: Best AUC = {study.best_value:.4f}")
-				
+				try:
+					best_auc = study.best_value
+				except ValueError:
+					best_auc = float('nan')
+				print(f"  Trial {trial.number}: Best AUC = {best_auc:.4f}")
+
+
 		study.optimize(objective, n_trials=50, callbacks=[progress_callback])
 		self.best_params['xgb'] = study.best_params
 		self.study_results['xgb'] = study
