@@ -1,22 +1,18 @@
 from doctest import OutputChecker
-from unittest import result
 import numpy as np
 import os
 import json
 import seaborn as sns
-import sys
 import optuna
 from optuna.samplers import TPESampler
 import pandas as pd
 import warnings
+from sklearn.preprocessing import LabelEncoder
 warnings.filterwarnings('ignore')
 import xgboost as xgb
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay, average_precision_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-from scipy import stats
-from typing import Dict, Tuple, Union, Optional
 import matplotlib.pyplot as plt
 
 
@@ -39,12 +35,22 @@ class ExoplanetModelSelector:
 		"""
 		Creating Random Forest optimized
 		"""
+		X_values = np.asarray(X_train)
+		y_values = np.asarray(y_train)
 		def objective(trial):
+			n_samples = len(y_values)
+			min_leaf_max = max(1, min(500, n_samples // 50))
+			min_samples_leaf = trial.suggest_int('min_samples_leaf', 1, min_leaf_max)
+			min_split_max = max(2, min(2000, n_samples // 20))
+			min_split_lower = max(2, 2 * min_samples_leaf)
+			if min_split_max < min_split_lower:
+				min_split_max = min_split_lower
+			min_samples_split = trial.suggest_int('min_samples_split', min_split_lower, min_split_max)
 			params = {
 				'n_estimators': trial.suggest_int('n_estimators', 100, 500, step=50),
-				'max_depth': trial.suggest_int('max_depth', 5, 30),
-				'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
-				'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
+				'max_depth': trial.suggest_int('max_depth', 3, 30),
+				'min_samples_leaf': min_samples_leaf,
+				'min_samples_split': min_samples_split,
 				'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2', 0.5, 0.8]),
 				'bootstrap': trial.suggest_categorical('bootstrap', [True, False]),
 				'class_weight': 'balanced',
@@ -52,9 +58,14 @@ class ExoplanetModelSelector:
 				'n_jobs': -1
 			}
 			model = RandomForestClassifier(**params)
-			cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
-			scores = cross_val_score(model, X_train, y_train, cv=cv, scoring='roc_auc', n_jobs=-1)
-			return scores.mean()
+			min_class_count = int(np.min(np.bincount(y_values)))
+			if min_class_count < 2:
+				return 0.0
+			n_splits_d = min(3, min_class_count)
+			cv = StratifiedKFold(n_splits=n_splits_d, shuffle=True, random_state=42)
+			scores = cross_val_score(model, X_values, y_values, cv=cv, scoring='roc_auc', n_jobs=-1)
+			scores = scores[~np.isnan(scores)]
+			return scores.mean() if len(scores) > 0 else 0.0
 
 		study = optuna.create_study(
 			direction='maximize',  # Max AUC
@@ -64,12 +75,16 @@ class ExoplanetModelSelector:
 		
 		def progress_callback(study, trial):
 			if trial.number % 10 == 0:
-				print(f"  Trial {trial.number}: Best AUC = {study.best_value:.4f}")
+				try:
+					best_auc = study.best_value
+				except ValueError:
+					best_auc = float('nan')
+				print(f"  Trial {trial.number}: Best AUC = {best_auc:.4f}")
 				
 		study.optimize(objective, n_trials=50, callbacks=[progress_callback])
 		self.best_params['rf'] = study.best_params
 		self.study_results['rf'] = study
-		params = study.best_paramas
+		params = study.best_params
 		params['class_weight'] = 'balanced'
 		params['random_state'] = 42
 		params['n_jobs'] = -1
@@ -113,8 +128,13 @@ class ExoplanetModelSelector:
 		
 		def progress_callback(study, trial):
 			if trial.number % 10 == 0:
-				print(f"  Trial {trial.number}: Best AUC = {study.best_value:.4f}")
-				
+				try:
+					best_auc = study.best_value
+				except ValueError:
+					best_auc = float('nan')
+				print(f"  Trial {trial.number}: Best AUC = {best_auc:.4f}")
+
+
 		study.optimize(objective, n_trials=50, callbacks=[progress_callback])
 		self.best_params['xgb'] = study.best_params
 		self.study_results['xgb'] = study
@@ -260,14 +280,13 @@ def train_model(model_type: str,
     --------
     dict : Resultados completos del entrenamiento y evaluación
     """
-
 	selector = ExoplanetModelSelector()
-
     # train
 	model = selector.train_model(model_type, X_train, y_train)
-
+	print(f"1")
     # Evaluate
 	results = selector.evaluate_model(model_type, X_test, y_test)
+	print(f"2")
 
 	#Grafics & Results
 	results_serializable = selector.results[model_type].copy()
@@ -287,7 +306,7 @@ def train_model(model_type: str,
 
 
 
-def exoplanet_model_switch(dataset: pd.DataFrame, model_type: str) -> dict:
+def exoplanet_model_switch(data: pd.DataFrame, model_type: str, target: pd.DataFrame) -> dict:
 	"""
     Switch the model
 
@@ -309,33 +328,15 @@ def exoplanet_model_switch(dataset: pd.DataFrame, model_type: str) -> dict:
 	X_test =
 	y_test =
 	"""
-	X = dataset.drop(columns=["koi_disposition"])
-	y = dataset["koi_disposition"]
-	X = X.select_dtypes(include=[np.number])
+	X = data
+	y = target
+
 	le = LabelEncoder()
-	y = le.fit_transform(y)
-	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42, stratify=y) #Train, test
+	y = pd.DataFrame(y).apply(le.fit_transform)
+	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y) #Train, test
 
     # SWITCH 
 	if model_type in ['rf', 'xgb']:
 		return train_model(model_type, X_train, y_train, X_test, y_test)
 	else:
 		raise ValueError(f"model_type debe ser 'rf', 'xgb': {model_type}")
-
-
-if __name__ == "__main__":
-	data = pd.read_csv("requirements.csv")
-	exoplanet_model_switch(data, "rf")
-	if len(sys.argv) != 3:
-		sys.exit(1)
-
-	csv_path = sys.argv[1]
-	model_type = sys.argv[2]
-
-	try:
-		data = pd.read_csv(csv_path)
-	except FileNotFoundError:
-		print(f"File not found: {csv_path}")
-		sys.exit(1)
-
-	exoplanet_model_switch(data, model_type)

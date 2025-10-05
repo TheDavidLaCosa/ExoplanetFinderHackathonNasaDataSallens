@@ -1,6 +1,6 @@
 import base64
 from flask import Flask, jsonify, send_file
-from nasa_ import *
+from backend.preprocess_data import *
 
 app = Flask(__name__)
 
