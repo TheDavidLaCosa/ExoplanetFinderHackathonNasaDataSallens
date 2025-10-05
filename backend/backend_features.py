@@ -204,7 +204,7 @@ def handle_excel():
         UPLOAD_STORE[upload_id] = content
 
         columns, cleaned_path = read_columns_and_save_clean_csv(file.filename, content)
-        data, data_pac, model= process_data(columns, level=20)#to do target variable
+        data, data_pac, model,target= process_data(columns, level=20,target)#to do target variable
         CLEANED_CSV_PATHS[upload_id] = cleaned_path
 
         return render_template_string(
