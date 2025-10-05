@@ -12,9 +12,12 @@ const DataAnalyzer = () => {
   const [useBayesianOpt, setUseBayesianOpt] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [analysisResult, setAnalysisResult] = useState(null);
+  const [analysisResult, setAnalysisResult] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [showBayesianInfo, setShowBayesianInfo] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('XGBoost');
+  const [showCorrelationInfo, setShowCorrelationInfo] = useState(false);
+  const [showPCAInfo, setShowPCAInfo] = useState(false);
   const fileInputRef = useRef(null);
 
   // File upload handler - now sends to backend first
@@ -213,7 +216,8 @@ const DataAnalyzer = () => {
         upload_id: fileData.upload_id,
         selected_features: selectedFeatures,
         target_column: selectedTarget || null,
-        use_bayesian_opt: useBayesianOpt
+        use_bayesian_opt: useBayesianOpt,
+        model_type: selectedModel
       };
 
       console.log('🔬 Sending analysis request to backend...', requestPayload);
@@ -600,6 +604,21 @@ const DataAnalyzer = () => {
               )}
             </div>
             
+            {/* Model Selection */}
+            <div className="mb-4">
+              <h3 className="text-white font-semibold mb-2">Select ML Model</h3>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="w-full bg-zinc-800 text-white p-3 rounded-lg border border-zinc-700 focus:outline-none focus:border-teal-500"
+              >
+                <option value="XGBoost">XGBoost</option>
+                <option value="RandomForest">Random Forest</option>
+                <option value="NeuralNetwork" disabled>Neural Networks - Coming Soon</option>
+              </select>
+            </div>
+            
+            {/* Start Analysis Button */}
             <button
               onClick={handleStartAnalysis}
               disabled={selectedFeatures.length === 0}
@@ -607,6 +626,263 @@ const DataAnalyzer = () => {
             >
               <ArrowRight size={20} />
               Start Analysis ({selectedFeatures.length} features)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'analysis') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="mb-6">
+            <Sparkles size={64} className="mx-auto text-teal-500 animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Analyzing Your Data</h2>
+          <p className="text-gray-400 mb-6">Running PCA, Correlation Analysis & ML Model...</p>
+          <div className="flex justify-center gap-2">
+            <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce"></div>
+            <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'report' && analysisResult) {
+    return (
+      <div className="min-h-screen bg-black p-4">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="bg-zinc-900 rounded-t-xl p-6 border-b border-zinc-800">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-3xl font-bold text-white mb-2">Analysis Report</h1>
+                <p className="text-gray-400">{file?.name} • {selectedFeatures.length} features analyzed</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => downloadReport('html')}
+                  className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  <Download size={20} />
+                  Download HTML
+                </button>
+                <button
+                  onClick={() => downloadReport('pdf')}
+                  className="bg-zinc-700 hover:bg-zinc-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  <Download size={20} />
+                  Download PDF
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Report Content */}
+          <div className="bg-zinc-900 p-6">
+            {/* Request Info */}
+            {analysisResult.request_info && (
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-white mb-4">📋 Analysis Request</h2>
+                <div className="bg-zinc-800 p-4 rounded-lg">
+                  <pre className="text-gray-300 text-sm overflow-x-auto">
+                    {JSON.stringify(analysisResult.request_info, null, 2)}
+                  </pre>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(analysisResult.request_info, null, 2));
+                      alert('Request JSON copied to clipboard!');
+                    }}
+                    className="mt-3 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded text-sm transition-colors"
+                  >
+                    📋 Copy JSON
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Statistics */}
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-white mb-4">📊 Summary Statistics</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-teal-500">
+                  <div className="text-gray-400 text-sm">Data Shape</div>
+                  <div className="text-white text-2xl font-bold">{analysisResult.data_shape ? `${analysisResult.data_shape[0]} × ${analysisResult.data_shape[1]}` : 'N/A'}</div>
+                </div>
+                <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-purple-500">
+                  <div className="text-gray-400 text-sm">PCA Components</div>
+                  <div className="text-white text-2xl font-bold">{analysisResult.pca_components || 'N/A'}</div>
+                </div>
+                {analysisResult.model_results && (
+                  <>
+                    <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-blue-500">
+                      <div className="text-gray-400 text-sm">R² Score</div>
+                      <div className="text-white text-2xl font-bold">{analysisResult.model_results.r2.toFixed(3)}</div>
+                    </div>
+                    <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-green-500">
+                      <div className="text-gray-400 text-sm">MSE</div>
+                      <div className="text-white text-2xl font-bold">{analysisResult.model_results.mse.toFixed(0)}</div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Correlation Matrix Tooltip */}
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-white mb-4">📈 Visualizations</h2>
+              <div className="grid grid-cols-1 gap-6">
+                {analysisResult.plots && Object.entries(analysisResult.plots).map(([key, imageData]) => {
+                  const plotInfo = getPlotInfo(key);
+                  return (
+                    <div key={key} className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
+                      {/* Plot Header */}
+                      <div className="mb-4">
+                        <h3 className="text-white font-bold text-xl mb-2">{plotInfo.title}
+                          {key === 'correlation' && (
+                            <button
+                              onMouseEnter={() => setShowCorrelationInfo(true)}
+                              onMouseLeave={() => setShowCorrelationInfo(false)}
+                              className="ml-2 text-gray-400 hover:text-teal-400 transition-colors"
+                            >
+                              <span className="inline-block w-5 h-5 text-center border border-current rounded-full text-xs leading-5">?</span>
+                            </button>
+                          )}
+                          {key === 'pca' && (
+                            <button
+                              onMouseEnter={() => setShowPCAInfo(true)}
+                              onMouseLeave={() => setShowPCAInfo(false)}
+                              className="ml-2 text-gray-400 hover:text-teal-400 transition-colors"
+                            >
+                              <span className="inline-block w-5 h-5 text-center border border-current rounded-full text-xs leading-5">?</span>
+                            </button>
+                          )}
+                        </h3>
+                        <p className="text-gray-400 text-sm">{plotInfo.description}</p>
+                      </div>
+                      
+                      {/* Plot Image */}
+                      <div className="bg-white p-4 rounded-lg mb-4">
+                        <img src={imageData} alt={key} className="w-full rounded" />
+                      </div>
+                      
+                      {/* Analysis Tips */}
+                      {plotInfo.tips.length > 0 && (
+                        <div className="bg-zinc-900 p-4 rounded-lg border-l-4 border-teal-500">
+                          <h4 className="text-teal-400 font-semibold mb-2 text-sm">📖 How to Read This Plot:</h4>
+                          <ul className="space-y-1">
+                            {plotInfo.tips.map((tip, idx) => (
+                              <li key={idx} className="text-gray-300 text-sm">{tip}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {/* Tooltip Descriptions */}
+                      {showCorrelationInfo && key === 'correlation' && (
+                        <div className="mt-2 text-sm text-gray-300 bg-zinc-700 p-3 rounded">
+                          <strong className="text-teal-400">Correlation Matrix:</strong> Shows relationships between features. Values range from -1 to 1. Red indicates positive correlation, blue indicates negative correlation.
+                        </div>
+                      )}
+                      {showPCAInfo && key === 'pca' && (
+                        <div className="mt-2 text-sm text-gray-300 bg-zinc-700 p-3 rounded">
+                          <strong className="text-teal-400">Principal Component Analysis (PCA):</strong> Reduces data to 2D while preserving variance. Each axis represents a principal component capturing variance in the data.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ML Results */}
+            {analysisResult.xgb_results && (
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-white mb-4">🤖 Machine Learning Results</h2>
+                <div className="space-y-4">
+                  {/* Model Performance */}
+                  <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
+                    <h3 className="text-teal-400 font-semibold mb-3 text-lg">Model Performance</h3>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Mean Squared Error (MSE):</span>
+                        <span className="text-white font-bold">{analysisResult.xgb_results.mse.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">R² Score:</span>
+                        <span className={`font-bold ${analysisResult.xgb_results.r2 > 0.7 ? 'text-green-400' : analysisResult.xgb_results.r2 > 0.3 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {analysisResult.xgb_results.r2.toFixed(4)}
+                        </span>
+                      </div>
+                      {analysisResult.xgb_results.bayesian_opt_used && (
+                        <div className="mt-2 text-teal-400 text-sm">
+                          ✨ Bayesian Optimization was used
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-zinc-900 p-3 rounded border-l-4 border-blue-500">
+                      <h4 className="text-blue-400 font-semibold mb-2 text-sm">📖 Understanding the Metrics:</h4>
+                      <ul className="space-y-1 text-gray-300 text-sm">
+                        <li><strong>MSE:</strong> Average squared difference between predictions and actual values. Lower is better.</li>
+                        <li><strong>R² Score:</strong> How well the model explains variance (0-1). Above 0.7 is good, above 0.9 is excellent.</li>
+                        <li>💡 Negative R² means the model performs worse than simply predicting the mean.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Feature Importance */}
+                  <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
+                    <h3 className="text-teal-400 font-semibold mb-3 text-lg">Feature Importance</h3>
+                    <div className="space-y-2 mb-4">
+                      {Object.entries(analysisResult.xgb_results.feature_importance)
+                        .sort(([,a], [,b]) => b - a)
+                        .map(([feature, importance]) => (
+                          <div key={feature} className="flex items-center gap-3">
+                            <span className="text-gray-300 text-sm w-32 truncate">{feature}</span>
+                            <div className="flex-1 bg-zinc-700 rounded-full h-6 overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-teal-500 to-blue-500 h-full flex items-center justify-end pr-2"
+                                style={{ width: `${importance * 100}%` }}
+                              >
+                                <span className="text-white text-xs font-bold">{(importance * 100).toFixed(1)}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                    <div className="bg-zinc-900 p-3 rounded border-l-4 border-purple-500">
+                      <h4 className="text-purple-400 font-semibold mb-2 text-sm">📖 How to Use This:</h4>
+                      <ul className="space-y-1 text-gray-300 text-sm">
+                        <li>🎯 <strong>Top features</strong> have the most impact on predictions</li>
+                        <li>✂️ <strong>Low importance features</strong> (&lt;5%) can often be removed</li>
+                        <li>💡 Focus your analysis on the top 3-5 most important features</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="bg-zinc-900 rounded-b-xl p-4 border-t border-zinc-800 text-center">
+            <button
+              onClick={() => {
+                setStep('upload');
+                setFile(null);
+                setFileData(null);
+                setDetectedFeatures(null);
+                setSelectedFeatures([]);
+                setMessages([]);
+                setAnalysisResult(null);
+              }}
+              className="text-teal-400 hover:text-teal-300 transition-colors"
+            >
+              Analyze Another Dataset →
             </button>
           </div>
         </div>
@@ -723,7 +999,26 @@ const DataAnalyzer = () => {
                     <div key={key} className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
                       {/* Plot Header */}
                       <div className="mb-4">
-                        <h3 className="text-white font-bold text-xl mb-2">{plotInfo.title}</h3>
+                        <h3 className="text-white font-bold text-xl mb-2">{plotInfo.title}
+                          {key === 'correlation' && (
+                            <button
+                              onMouseEnter={() => setShowCorrelationInfo(true)}
+                              onMouseLeave={() => setShowCorrelationInfo(false)}
+                              className="ml-2 text-gray-400 hover:text-teal-400 transition-colors"
+                            >
+                              <span className="inline-block w-5 h-5 text-center border border-current rounded-full text-xs leading-5">?</span>
+                            </button>
+                          )}
+                          {key === 'pca' && (
+                            <button
+                              onMouseEnter={() => setShowPCAInfo(true)}
+                              onMouseLeave={() => setShowPCAInfo(false)}
+                              className="ml-2 text-gray-400 hover:text-teal-400 transition-colors"
+                            >
+                              <span className="inline-block w-5 h-5 text-center border border-current rounded-full text-xs leading-5">?</span>
+                            </button>
+                          )}
+                        </h3>
                         <p className="text-gray-400 text-sm">{plotInfo.description}</p>
                       </div>
                       
@@ -741,6 +1036,18 @@ const DataAnalyzer = () => {
                               <li key={idx} className="text-gray-300 text-sm">{tip}</li>
                             ))}
                           </ul>
+                        </div>
+                      )}
+                      
+                      {/* Tooltip Descriptions */}
+                      {showCorrelationInfo && key === 'correlation' && (
+                        <div className="mt-2 text-sm text-gray-300 bg-zinc-700 p-3 rounded">
+                          <strong className="text-teal-400">Correlation Matrix:</strong> Shows relationships between features. Values range from -1 to 1. Red indicates positive correlation, blue indicates negative correlation.
+                        </div>
+                      )}
+                      {showPCAInfo && key === 'pca' && (
+                        <div className="mt-2 text-sm text-gray-300 bg-zinc-700 p-3 rounded">
+                          <strong className="text-teal-400">Principal Component Analysis (PCA):</strong> Reduces data to 2D while preserving variance. Each axis represents a principal component capturing variance in the data.
                         </div>
                       )}
                     </div>

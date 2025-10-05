@@ -71,7 +71,7 @@ def pca(df, n_components=0.95):
     
     return pca_df, pca, scaler
 
-def process_data(df, target_column=None, selected_features=None, use_bayesian_opt=False):
+def process_data(df, target_column=None, selected_features=None, use_bayesian_opt=False, model_type='XGBoost'):
     """
     Process data with full ML pipeline
     
@@ -80,6 +80,7 @@ def process_data(df, target_column=None, selected_features=None, use_bayesian_op
         target_column: Column to predict
         selected_features: List of feature columns to use
         use_bayesian_opt: Whether to use Bayesian optimization for hyperparameter tuning
+        model_type: The type of ML model to use ('XGBoost' or 'RandomForest')
     """
     try:
         # Step 1: Control nulls
@@ -97,8 +98,8 @@ def process_data(df, target_column=None, selected_features=None, use_bayesian_op
         # Step 4: PCA analysis
         pca_df, pca_model, scaler = pca(df_clean)
         
-        # Step 5: XGBoost analysis (if target is specified)
-        xgb_results = None
+        # Step 5: ML Model analysis (if target is specified)
+        model_results = None
         if target_column and target_column in df_clean.columns:
             # Prepare features and target
             X = df_clean.drop(columns=[target_column])
@@ -110,34 +111,36 @@ def process_data(df, target_column=None, selected_features=None, use_bayesian_op
             # Split data
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
             
-            # Train XGBoost with or without Bayesian optimization
-            if use_bayesian_opt:
-                # Bayesian optimization for hyperparameter tuning (simplified version)
-                # In production, you'd use libraries like scikit-optimize or optuna
-                best_params = {
-                    'n_estimators': 200,
-                    'max_depth': 6,
-                    'learning_rate': 0.05,
-                    'subsample': 0.8,
-                    'colsample_bytree': 0.8
-                }
-                xgb_model = xgb.XGBRegressor(**best_params, random_state=42)
-            else:
-                xgb_model = xgb.XGBRegressor(n_estimators=100, random_state=42)
+            # Train the selected model
+            if model_type == 'RandomForest':
+                from sklearn.ensemble import RandomForestRegressor
+                model = RandomForestRegressor(n_estimators=100, random_state=42)
+            else:  # Default to XGBoost
+                if use_bayesian_opt:
+                    best_params = {
+                        'n_estimators': 200,
+                        'max_depth': 6,
+                        'learning_rate': 0.05,
+                        'subsample': 0.8,
+                        'colsample_bytree': 0.8
+                    }
+                    model = xgb.XGBRegressor(**best_params, random_state=42)
+                else:
+                    model = xgb.XGBRegressor(n_estimators=100, random_state=42)
             
-            xgb_model.fit(X_train, y_train)
+            model.fit(X_train, y_train)
             
             # Make predictions
-            y_pred = xgb_model.predict(X_test)
+            y_pred = model.predict(X_test)
             
             # Calculate metrics
             mse = mean_squared_error(y_test, y_pred)
             r2 = r2_score(y_test, y_pred)
             
-            xgb_results = {
+            model_results = {
                 'mse': float(mse),
                 'r2': float(r2),
-                'feature_importance': {str(k): float(v) for k, v in zip(X.columns, xgb_model.feature_importances_)},
+                'feature_importance': {str(k): float(v) for k, v in zip(X.columns, model.feature_importances_)} if hasattr(model, 'feature_importances_') else {},
                 'bayesian_opt_used': use_bayesian_opt
             }
         
@@ -176,14 +179,14 @@ def process_data(df, target_column=None, selected_features=None, use_bayesian_op
             plots['pca'] = f"data:image/png;base64,{plot_data}"
             plt.close()
         
-        # Feature importance (if XGBoost was run)
-        if xgb_results:
+        # Feature importance (if model was run)
+        if model_results and 'feature_importance' in model_results:
             plt.figure(figsize=(10, 8))
-            features = list(xgb_results['feature_importance'].keys())
-            importance = list(xgb_results['feature_importance'].values())
+            features = list(model_results['feature_importance'].keys())
+            importance = list(model_results['feature_importance'].values())
             plt.barh(features, importance)
             plt.xlabel('Feature Importance')
-            plt.title('XGBoost Feature Importance')
+            plt.title('Model Feature Importance')
             plt.tight_layout()
             
             buffer = BytesIO()
@@ -197,11 +200,11 @@ def process_data(df, target_column=None, selected_features=None, use_bayesian_op
             'success': True,
             'data_shape': [int(df_clean.shape[0]), int(df_clean.shape[1])],
             'pca_components': int(pca_df.shape[1]) if pca_df is not None else 0,
-            'xgb_results': xgb_results,
+            'model_results': model_results,
             'plots': plots,
             'message': 'Full ML pipeline completed successfully!'
         }
-        
+    
     except Exception as e:
         return {
             'success': False,
@@ -280,6 +283,7 @@ def analyze_data():
         selected_features = data.get('selected_features', [])
         target_column = data.get('target_column')
         use_bayesian_opt = data.get('use_bayesian_opt', False)
+        model_type = data.get('model_type', 'XGBoost') # Default to XGBoost
         
         if not upload_id:
             return jsonify({'error': 'Upload ID required'}), 400
@@ -310,11 +314,12 @@ def analyze_data():
             'target_column': target_column,
             'selected_features': selected_features,
             'use_bayesian_opt': use_bayesian_opt,
+            'model_type': model_type,
             'timestamp': pd.Timestamp.now().isoformat()
         }
         
         # Process with full ML pipeline
-        results = process_data(df, target_column, selected_features, use_bayesian_opt)
+        results = process_data(df, target_column, selected_features, use_bayesian_opt, model_type)
         
         # Add request info to results
         results['request_info'] = request_info
