@@ -18,7 +18,7 @@ An interactive web application that trains neural networks on real NASA exoplane
 
 # Results
 
-[Presentation](https://github.com/TheDavidLaCosa/ExoplanetFinderHackathonNasaDataSallens/blob/dev/Demo/Major_Tom_pdt.pdf)
+[Presentation](https://github.com/TheDavidLaCosa/ExoplanetFinderHackathonNasaDataSallens/blob/nasaGPT_dockerized/Demo/Major_Tom.pptx)
 
 
 [![Demo in YouTube](https://img.youtube.com/vi/y8RK3mTENDc/mqdefault.jpg)](https://youtu.be/y8RK3mTENDc)
