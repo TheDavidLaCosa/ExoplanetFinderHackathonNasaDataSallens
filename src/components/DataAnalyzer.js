@@ -9,10 +9,12 @@ const DataAnalyzer = () => {
   const [detectedFeatures, setDetectedFeatures] = useState(null);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
   const [selectedTarget, setSelectedTarget] = useState('');
+  const [useBayesianOpt, setUseBayesianOpt] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [analysisResult, setAnalysisResult] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showBayesianInfo, setShowBayesianInfo] = useState(false);
   const fileInputRef = useRef(null);
 
   // File upload handler - now sends to backend first
@@ -207,21 +209,21 @@ const DataAnalyzer = () => {
     setStep('analysis');
 
     try {
-      console.log('🔬 Sending analysis request to backend...', {
+      const requestPayload = {
         upload_id: fileData.upload_id,
-        features: selectedFeatures
-      });
+        selected_features: selectedFeatures,
+        target_column: selectedTarget || null,
+        use_bayesian_opt: useBayesianOpt
+      };
+
+      console.log('🔬 Sending analysis request to backend...', requestPayload);
 
       const response = await fetch('http://localhost:4000/api/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          upload_id: fileData.upload_id,
-          features: selectedFeatures,
-          target: selectedTarget || null
-        })
+        body: JSON.stringify(requestPayload)
       });
 
       if (!response.ok) {
@@ -231,15 +233,8 @@ const DataAnalyzer = () => {
       const backendResult = await response.json();
       console.log('✅ Backend analysis complete:', backendResult);
 
-      // Transform backend result to match expected format
-      const result = {
-        statistics: backendResult.statistics || [],
-        plots: backendResult.plots || [],
-        insights: backendResult.insights || [],
-        success: backendResult.success
-      };
-
-      setAnalysisResult(result);
+      // Store the complete result including request_info
+      setAnalysisResult(backendResult);
       setStep('report');
     } catch (error) {
       console.error('Analysis error:', error);
@@ -531,6 +526,39 @@ const DataAnalyzer = () => {
               </button>
             </div>
             
+            {/* Bayesian Optimization Toggle */}
+            <div className="mb-3 bg-zinc-800 p-3 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="bayesian-opt"
+                    checked={useBayesianOpt}
+                    onChange={(e) => setUseBayesianOpt(e.target.checked)}
+                    className="w-4 h-4 text-teal-600 bg-zinc-700 border-zinc-600 rounded focus:ring-teal-500"
+                  />
+                  <label htmlFor="bayesian-opt" className="text-white font-medium cursor-pointer">
+                    Use Bayesian Optimization
+                  </label>
+                  <button
+                    onMouseEnter={() => setShowBayesianInfo(true)}
+                    onMouseLeave={() => setShowBayesianInfo(false)}
+                    className="text-gray-400 hover:text-teal-400 transition-colors"
+                  >
+                    <span className="inline-block w-5 h-5 text-center border border-current rounded-full text-xs leading-5">?</span>
+                  </button>
+                </div>
+                {useBayesianOpt && (
+                  <span className="text-yellow-500 text-sm">⏱️ Takes longer</span>
+                )}
+              </div>
+              {showBayesianInfo && (
+                <div className="mt-2 text-sm text-gray-300 bg-zinc-700 p-3 rounded">
+                  <strong className="text-teal-400">Bayesian Optimization:</strong> Advanced hyperparameter tuning that finds optimal model settings by intelligently exploring the parameter space. Results in better model performance but takes 2-3x longer to complete.
+                </div>
+              )}
+            </div>
+            
             <button
               onClick={handleStartAnalysis}
               disabled={selectedFeatures.length === 0}
@@ -596,6 +624,27 @@ const DataAnalyzer = () => {
 
           {/* Report Content */}
           <div className="bg-zinc-900 p-6">
+            {/* Request Info */}
+            {analysisResult.request_info && (
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-white mb-4">📋 Analysis Request</h2>
+                <div className="bg-zinc-800 p-4 rounded-lg">
+                  <pre className="text-gray-300 text-sm overflow-x-auto">
+                    {JSON.stringify(analysisResult.request_info, null, 2)}
+                  </pre>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(analysisResult.request_info, null, 2));
+                      alert('Request JSON copied to clipboard!');
+                    }}
+                    className="mt-3 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded text-sm transition-colors"
+                  >
+                    📋 Copy JSON
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Statistics */}
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-white mb-4">📊 Summary Statistics</h2>

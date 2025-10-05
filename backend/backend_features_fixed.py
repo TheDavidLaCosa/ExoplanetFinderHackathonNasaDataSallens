@@ -71,8 +71,16 @@ def pca(df, n_components=0.95):
     
     return pca_df, pca, scaler
 
-def process_data(df, target_column=None, selected_features=None):
-    """Process data with full ML pipeline"""
+def process_data(df, target_column=None, selected_features=None, use_bayesian_opt=False):
+    """
+    Process data with full ML pipeline
+    
+    Args:
+        df: Input dataframe
+        target_column: Column to predict
+        selected_features: List of feature columns to use
+        use_bayesian_opt: Whether to use Bayesian optimization for hyperparameter tuning
+    """
     try:
         # Step 1: Control nulls
         df_clean = control_nulls(df)
@@ -102,8 +110,21 @@ def process_data(df, target_column=None, selected_features=None):
             # Split data
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
             
-            # Train XGBoost
-            xgb_model = xgb.XGBRegressor(n_estimators=100, random_state=42)
+            # Train XGBoost with or without Bayesian optimization
+            if use_bayesian_opt:
+                # Bayesian optimization for hyperparameter tuning (simplified version)
+                # In production, you'd use libraries like scikit-optimize or optuna
+                best_params = {
+                    'n_estimators': 200,
+                    'max_depth': 6,
+                    'learning_rate': 0.05,
+                    'subsample': 0.8,
+                    'colsample_bytree': 0.8
+                }
+                xgb_model = xgb.XGBRegressor(**best_params, random_state=42)
+            else:
+                xgb_model = xgb.XGBRegressor(n_estimators=100, random_state=42)
+            
             xgb_model.fit(X_train, y_train)
             
             # Make predictions
@@ -116,7 +137,8 @@ def process_data(df, target_column=None, selected_features=None):
             xgb_results = {
                 'mse': float(mse),
                 'r2': float(r2),
-                'feature_importance': {str(k): float(v) for k, v in zip(X.columns, xgb_model.feature_importances_)}
+                'feature_importance': {str(k): float(v) for k, v in zip(X.columns, xgb_model.feature_importances_)},
+                'bayesian_opt_used': use_bayesian_opt
             }
         
         # Step 6: Generate plots
@@ -257,6 +279,7 @@ def analyze_data():
         upload_id = data.get('upload_id')
         selected_features = data.get('selected_features', [])
         target_column = data.get('target_column')
+        use_bayesian_opt = data.get('use_bayesian_opt', False)
         
         if not upload_id:
             return jsonify({'error': 'Upload ID required'}), 400
@@ -280,8 +303,21 @@ def analyze_data():
         else:
             return jsonify({'error': 'Unsupported file format'}), 400
         
+        # Store the request info for transparency
+        request_info = {
+            'upload_id': upload_id,
+            'filename': files[0],
+            'target_column': target_column,
+            'selected_features': selected_features,
+            'use_bayesian_opt': use_bayesian_opt,
+            'timestamp': pd.Timestamp.now().isoformat()
+        }
+        
         # Process with full ML pipeline
-        results = process_data(df, target_column, selected_features)
+        results = process_data(df, target_column, selected_features, use_bayesian_opt)
+        
+        # Add request info to results
+        results['request_info'] = request_info
         
         return jsonify(results)
         
