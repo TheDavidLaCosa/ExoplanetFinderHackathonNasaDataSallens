@@ -1,10 +1,8 @@
 from doctest import OutputChecker
-from unittest import result
 import numpy as np
 import os
 import json
 import seaborn as sns
-import sys
 import optuna
 from optuna.samplers import TPESampler
 import pandas as pd
@@ -14,9 +12,6 @@ import xgboost as xgb
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay, average_precision_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-from scipy import stats
-from typing import Dict, Tuple, Union, Optional
 import matplotlib.pyplot as plt
 
 

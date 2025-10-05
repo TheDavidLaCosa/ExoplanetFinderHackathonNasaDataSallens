@@ -4,7 +4,8 @@ numpy
 pandas
 scipy
 scikit-learn
-matplotlib
+matplotlib>=3.8
+seaborn>=0.13.2
 xgboost
 tensorflow
 seaborn

@@ -110,7 +110,7 @@ def pca(data, model,level):
     # Creem un DataFrame amb els 17 components
     dataset_pca = pd.DataFrame(
         X_pca_17,
-        columns=[f"PC{i+1}" for i in range(17)]
+        columns=[f"PC{i+1}" for i in range(n_components_80)]
     )
     
     num_cols_pca = dataset_pca.select_dtypes(include=[np.number]).columns
@@ -133,17 +133,15 @@ def pca(data, model,level):
     plt.tight_layout()
     # Guardar como imagen JPG
     plt.savefig("./img/Correlation_numeric_values_pca.jpg", format="jpg", dpi=800)
-    #plt.show()
-
-
-
+    
     return data, dataset_pca, model
 
 def process_data (cols , level, target):  
     dataset = pd.read_csv("./uploads/dataset.csv", sep = ",")
     y=dataset[target]
     dataset.drop(columns=[target], inplace=True)
-    df_filtrado = dataset.drop(columns=[col for col in cols if col not in dataset.columns and not target])
+
+    df_filtrado = dataset[[c for c in cols if c in dataset.columns]].copy()
     
     d,d_pca, m, = pca (df_filtrado,'xgboost',level)
     d.to_csv('data.csv')
