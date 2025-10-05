@@ -1,7 +1,9 @@
 from flask import Flask, request, render_template_string, redirect, url_for
 import pandas as pd
 import io, uuid, os
-from nasa_ import *
+from preprocess_data import *
+from ml_models import *
+from models import *
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 120 * 1024 * 1024  # 120MB
@@ -207,9 +209,14 @@ def handle_excel():
 
         # Reading the columns
         columns, cleaned_path = read_columns_and_save_clean_csv(file.filename, content)
-        data, data_pac, model,target= process_data(columns, level=20,target)#to do target variable
+        data, data_pca, target= process_data(columns, level=20,target='koi_disposition')
+        model = "xgb"
+        # results = exoplanet_model_switch(data, model,target)
+        result,model =train_and_eval(data,target,use_bayes=False,model_type='xgboost')
+        print(result)
+        # results_pca = exoplanet_model_switch(data_pca, model,target)        
         CLEANED_CSV_PATHS[upload_id] = cleaned_path
-
+ 
         return render_template_string(
             TPL_COLUMNS,
             filename=file.filename,
