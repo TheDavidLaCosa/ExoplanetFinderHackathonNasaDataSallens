@@ -210,7 +210,6 @@ def handle_excel():
         # Reading the columns
         columns, cleaned_path = read_columns_and_save_clean_csv(file.filename, content)
         data, data_pca, target= process_data(columns, level=20,target='koi_disposition')
-        model = "xgb"
         # results = exoplanet_model_switch(data, model,target)
         result,model =train_and_eval(data,target,use_bayes=False,model_type='xgboost')
         print(result)
