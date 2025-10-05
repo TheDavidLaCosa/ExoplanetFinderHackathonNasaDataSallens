@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template_string, redirect, url_for
 import pandas as pd
 import io, uuid, os
+from nasa_ import *
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 120 * 1024 * 1024  # 120MB
@@ -203,6 +204,7 @@ def handle_excel():
         UPLOAD_STORE[upload_id] = content
 
         columns, cleaned_path = read_columns_and_save_clean_csv(file.filename, content)
+        data, data_pac, model= process_data(columns, level=20)
         CLEANED_CSV_PATHS[upload_id] = cleaned_path
 
         return render_template_string(

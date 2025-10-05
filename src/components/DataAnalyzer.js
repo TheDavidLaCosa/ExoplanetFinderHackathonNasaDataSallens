@@ -8,13 +8,14 @@ const DataAnalyzer = () => {
   const [fileData, setFileData] = useState(null);
   const [detectedFeatures, setDetectedFeatures] = useState(null);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
+  const [selectedTarget, setSelectedTarget] = useState('');
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [analysisResult, setAnalysisResult] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef(null);
 
-  // File upload handler
+  // File upload handler - now sends to backend first
   const handleFileUpload = async (event) => {
     const uploadedFile = event.target.files[0];
     if (!uploadedFile) return;
@@ -23,30 +24,76 @@ const DataAnalyzer = () => {
     setIsProcessing(true);
 
     try {
-      // Parse file based on type
-      const data = await parseFile(uploadedFile);
-      setFileData(data);
+      // Send file to backend for processing
+      const formData = new FormData();
+      formData.append('file', uploadedFile);
 
-      // Detect features using AI
-      const features = await detectFeatures(data);
-      setDetectedFeatures(features);
+      console.log('📤 Uploading file to backend...', uploadedFile.name);
+      
+      const response = await fetch('http://localhost:4000/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend error: ${response.status}`);
+      }
+
+      const backendData = await response.json();
+      console.log('✅ Backend processed file:', backendData);
+
+      // Store backend response
+      setFileData({
+        upload_id: backendData.upload_id,
+        filename: backendData.filename,
+        rows: backendData.rows,
+        columns: backendData.columns,
+        features: backendData.features
+      });
+
+      // Categorize features (raw vs derived)
+      const categorizedFeatures = categorizeFeatures(backendData.features);
+      setDetectedFeatures(categorizedFeatures);
 
       // Start conversation
       setStep('conversation');
       
       const initialMessage = {
         role: 'assistant',
-        content: `Great! I've analyzed your file "${uploadedFile.name}". I found ${data.rows.length} rows and ${data.columns.length} columns.\n\nLet me categorize the features for you:\n\n**Raw Features (${features.raw.length}):**\n${features.raw.map(f => `• ${f.name}: ${f.description}`).join('\n')}\n\n**Derived/Calculated Features (${features.derived.length}):**\n${features.derived.map(f => `• ${f.name}: ${f.description}`).join('\n')}\n\nWhich features would you like to analyze?`,
+        content: `Great! I've processed your file "${uploadedFile.name}" through our backend. Found ${backendData.rows} rows and ${backendData.columns.length} columns.\n\nLet me categorize the features for you:\n\n**Raw Features (${categorizedFeatures.raw.length}):**\n${categorizedFeatures.raw.map(f => `• ${f.name}: ${f.type} (${f.sample})`).join('\n')}\n\n**Derived/Calculated Features (${categorizedFeatures.derived.length}):**\n${categorizedFeatures.derived.map(f => `• ${f.name}: ${f.type} (${f.sample})`).join('\n')}\n\nWhich features would you like to analyze?`,
         timestamp: new Date()
       };
       
       setMessages([initialMessage]);
     } catch (error) {
       console.error('Error processing file:', error);
-      alert('Error processing file. Please try again.');
+      alert(`Error processing file: ${error.message}. Please make sure the backend is running on port 4000.`);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Categorize features from backend response
+  const categorizeFeatures = (features) => {
+    const raw = [];
+    const derived = [];
+    
+    features.forEach(feature => {
+      const isDerived = feature.name.toLowerCase().includes('ratio') ||
+                       feature.name.toLowerCase().includes('rate') ||
+                       feature.name.toLowerCase().includes('percent') ||
+                       feature.name.toLowerCase().includes('index') ||
+                       feature.name.toLowerCase().includes('score') ||
+                       feature.name.toLowerCase().includes('calculated');
+      
+      if (isDerived) {
+        derived.push(feature);
+      } else {
+        raw.push(feature);
+      }
+    });
+    
+    return { raw, derived };
   };
 
   // Parse different file types
@@ -149,7 +196,7 @@ const DataAnalyzer = () => {
     });
   };
 
-  // Start analysis
+  // Start analysis - now uses backend
   const handleStartAnalysis = async () => {
     if (selectedFeatures.length === 0) {
       alert('Please select at least one feature to analyze.');
@@ -160,13 +207,43 @@ const DataAnalyzer = () => {
     setStep('analysis');
 
     try {
-      // Generate analysis using AI
-      const result = await analyzeDataWithAI(fileData, selectedFeatures);
+      console.log('🔬 Sending analysis request to backend...', {
+        upload_id: fileData.upload_id,
+        features: selectedFeatures
+      });
+
+      const response = await fetch('http://localhost:4000/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          upload_id: fileData.upload_id,
+          features: selectedFeatures,
+          target: selectedTarget || null
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend analysis error: ${response.status}`);
+      }
+
+      const backendResult = await response.json();
+      console.log('✅ Backend analysis complete:', backendResult);
+
+      // Transform backend result to match expected format
+      const result = {
+        statistics: backendResult.statistics || [],
+        plots: backendResult.plots || [],
+        insights: backendResult.insights || [],
+        success: backendResult.success
+      };
+
       setAnalysisResult(result);
       setStep('report');
     } catch (error) {
-      console.error('Error analyzing data:', error);
-      alert('Error generating analysis. Please try again.');
+      console.error('Analysis error:', error);
+      alert(`Analysis failed: ${error.message}. Please make sure the backend is running.`);
       setStep('conversation');
     } finally {
       setIsProcessing(false);
@@ -415,6 +492,24 @@ const DataAnalyzer = () => {
                 )}
               </div>
             )}
+
+            {/* Target Selection */}
+            <div className="mt-6">
+              <h4 className="text-yellow-400 text-sm font-medium mb-2">Target Column (Optional)</h4>
+              <p className="text-gray-400 text-xs mb-3">Select a target column for supervised learning analysis</p>
+              <select
+                value={selectedTarget}
+                onChange={(e) => setSelectedTarget(e.target.value)}
+                className="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-teal-500"
+              >
+                <option value="">No target column</option>
+                {detectedFeatures && [...detectedFeatures.raw, ...detectedFeatures.derived].map(feature => (
+                  <option key={feature.name} value={feature.name}>
+                    {feature.name} ({feature.type})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Input & Action */}

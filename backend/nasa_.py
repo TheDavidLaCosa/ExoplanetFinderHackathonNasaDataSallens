@@ -11,10 +11,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-level= 20
-string=['kepler_name', 'koi_teq_err1', 'koi_teq_err2']
 
-def montecarlo (col):
+def montecarlo (dataset, col):
 
     if dataset[col].dtype in ["int64", "float64"]:
         if dataset[col].isna().sum() > 0:
@@ -32,13 +30,13 @@ def control_nulls(dataset,level):
         #print(f"{col}: {nan_counts[col]} NaN; {nan_percent[col]:.2f}%")
         level_col =nan_percent
         if level_col<level:
-           dataset[col]= montecarlo(col)
+           dataset[col]= montecarlo(dataset, col)
         else:
             dataset.drop(columns=[col], inplace=True)
     return dataset
 
 
-def pca(data, model):
+def pca(data, model,level):
     data= control_nulls(data,level)
     num_cols = data.select_dtypes(include=[np.number]).columns
 
@@ -58,7 +56,7 @@ def pca(data, model):
     plt.yticks(rotation=0)
     plt.tight_layout()
     # Guardar como imagen JPG
-    plt.savefig(".\\img\\Correlation_numeric_values.jpg", format="jpg", dpi=800)
+    plt.savefig("./img/Correlation_numeric_values.jpg", format="jpg", dpi=800)
     #plt.show()
 
     #pca
@@ -98,7 +96,7 @@ def pca(data, model):
             f"          {n_components_80} components → {cumulative_variance[n_components_80-1]*100:.1f}%",
             color="g")
     plt.title("Cumulative Explained Variance 80%")
-    plt.savefig(".\\img\\80_per_cent_PCA.jpg", format="jpg", dpi=300)
+    plt.savefig("./img/80_per_cent_PCA.jpg", format="jpg", dpi=300)
     #plt.show()
 
     X_scaled = StandardScaler().fit_transform(data[num_cols])
@@ -132,16 +130,18 @@ def pca(data, model):
     plt.yticks(rotation=0)
     plt.tight_layout()
     # Guardar como imagen JPG
-    plt.savefig(".\\img\\Correlation_numeric_values_pca.jpg", format="jpg", dpi=800)
+    plt.savefig("./img/Correlation_numeric_values_pca.jpg", format="jpg", dpi=800)
     #plt.show()
 
 
 
     return data, dataset_pca, model
-  
-dataset = pd.read_csv("C:\\Users\\LOLO\\Desktop\\data\\cumulative_2025.10.01_09.32.22.csv", sep = ",", header = 53)
 
-df_filtrado = dataset.drop(columns=[col for col in string if col not in dataset.columns])
-print(df_filtrado.head())
+def process_data ( columns , level=20):  
+    dataset = pd.read_csv("./uploads/dataset.csv", sep = ",")
 
-d,d_pca, m, = pca (df_filtrado,model='xgboost')
+    df_filtrado = dataset.drop(columns=[col for col in columns if col not in dataset.columns])
+    print(df_filtrado.head())
+
+    d,d_pca, m, = pca (df_filtrado,'xgboost',level)
+    return d,d_pca,m
