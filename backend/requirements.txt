@@ -1,3 +1,9 @@
-Flask
-gunicorn
+numpy
 pandas
+scipy
+scikit-learn
+matplotlib
+xgboost
+tensorflow
+seaborn
+optuna
