@@ -107,8 +107,97 @@ export async function chatWithGroqStream(messages, onChunk) {
   }
 }
 
+/**
+ * Analyze features using Groq AI for unknown/generic datasets
+ * @param {Array} features - Array of feature objects with {name, type, sample}
+ * @param {Array} sampleRows - Sample data rows (first 5 rows)
+ * @returns {Promise<Object>} Feature analysis with recommendations
+ */
+export async function analyzeFeatures(features, sampleRows = []) {
+  try {
+    const featureList = features.map(f => `${f.name} (${f.type})`).join(', ');
+    
+    // Handle null or empty sampleRows
+    const validSampleRows = Array.isArray(sampleRows) && sampleRows.length > 0 ? sampleRows : [];
+    const sampleData = validSampleRows.length > 0 
+      ? validSampleRows.slice(0, 3).map((row, i) => `Row ${i + 1}: ${JSON.stringify(row)}`).join('\n')
+      : 'No sample data available';
+    
+    const prompt = `Analyze this dataset and provide feature recommendations for machine learning:
+
+FEATURES: ${featureList}
+
+SAMPLE DATA:
+${sampleData}
+
+Provide a JSON response with this structure:
+{
+  "features": [
+    {
+      "name": "feature_name",
+      "description": "brief description",
+      "importance": "high|medium|low",
+      "recommendFor": "target|feature|exclude",
+      "reason": "why it's useful or not"
+    }
+  ],
+  "recommendedTarget": "best_target_column_name",
+  "recommendedFeatures": ["feature1", "feature2", "feature3", "feature4", "feature5"]
+}
+
+Focus on:
+1. Which column is best for prediction (target)
+2. Which features are most predictive (input features)
+3. Which features to exclude (IDs, redundant data)
+
+Respond ONLY with valid JSON, no markdown or explanation.`;
+
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('GROQ request timeout after 10 seconds')), 10000)
+    );
+    
+    const completionPromise = groq.chat.completions.create({
+      messages: [
+        { role: "system", content: "You are a data science expert specializing in feature engineering and ML model design. Respond only with valid JSON." },
+        { role: "user", content: prompt }
+      ],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.3, // Lower temperature for more consistent JSON
+      max_tokens: 2048,
+      top_p: 1,
+      stream: false
+    });
+    
+    const completion = await Promise.race([completionPromise, timeoutPromise]);
+
+    const response = completion.choices[0]?.message?.content || "{}";
+    
+    // Try to parse JSON, handling potential markdown wrapping
+    let jsonStr = response.trim();
+    if (jsonStr.startsWith('```json')) {
+      jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    } else if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.replace(/```\n?/g, '');
+    }
+    
+    const analysis = JSON.parse(jsonStr);
+    return analysis;
+  } catch (error) {
+    console.error("Groq feature analysis error:", error);
+    
+    // Return empty analysis on error
+    return {
+      features: [],
+      recommendedTarget: null,
+      recommendedFeatures: []
+    };
+  }
+}
+
 export default {
   chatWithGroq,
-  chatWithGroqStream
+  chatWithGroqStream,
+  analyzeFeatures
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, Download, Sparkles, CheckCircle, ArrowRight, BarChart3, FileSpreadsheet } from 'lucide-react';
 import { analyzeDataWithAI } from '../services/dataAnalysisService';
+import { analyzeFeatures as analyzeWithGroq } from '../services/groqService';
 
 const DataAnalyzer = () => {
   const [step, setStep] = useState('upload'); // 'upload', 'conversation', 'analysis', 'report'
@@ -20,6 +21,8 @@ const DataAnalyzer = () => {
   const [showPCAInfo, setShowPCAInfo] = useState(false);
   const [showFeatureTooltip, setShowFeatureTooltip] = useState(null);
   const [recommendations, setRecommendations] = useState(null);
+  const [isAnalyzingFeatures, setIsAnalyzingFeatures] = useState(false);
+  const [useGroqForUnknown, setUseGroqForUnknown] = useState(true);
   const fileInputRef = useRef(null);
 
   // File upload handler - now sends to backend first
@@ -58,8 +61,8 @@ const DataAnalyzer = () => {
         features: backendData.features
       });
 
-      // Categorize features (raw vs derived)
-      const categorizedFeatures = categorizeFeatures(backendData.features);
+      // Categorize features (raw vs derived) - now async for GROQ support
+      const categorizedFeatures = await categorizeFeatures(backendData.features, null);
       setDetectedFeatures(categorizedFeatures);
 
       // Start conversation
@@ -67,7 +70,7 @@ const DataAnalyzer = () => {
       
       const initialMessage = {
         role: 'assistant',
-        content: `Great! I've processed your file "${uploadedFile.name}" through our backend. Found ${backendData.rows} rows and ${backendData.columns.length} columns.\n\nLet me categorize the features for you:\n\n**Raw Features (${categorizedFeatures.raw.length}):**\n${categorizedFeatures.raw.map(f => `• ${f.name}: ${f.type} (${f.sample})`).join('\n')}\n\n**Derived/Calculated Features (${categorizedFeatures.derived.length}):**\n${categorizedFeatures.derived.map(f => `• ${f.name}: ${f.type} (${f.sample})`).join('\n')}\n\nWhich features would you like to analyze?`,
+        content: `Great! I've processed your file "${uploadedFile.name}" through our backend. Found ${backendData.rows} rows and ${backendData.columns} columns.\n\nLet me categorize the features for you:\n\n**Raw Features (${categorizedFeatures.raw.length}):**\n${categorizedFeatures.raw.map(f => `• ${f.name}: ${f.type} (${f.sample})`).join('\n')}\n\n**Derived/Calculated Features (${categorizedFeatures.derived.length}):**\n${categorizedFeatures.derived.map(f => `• ${f.name}: ${f.type} (${f.sample})`).join('\n')}\n\nWhich features would you like to analyze?`,
         timestamp: new Date()
       };
       
@@ -228,43 +231,130 @@ const DataAnalyzer = () => {
     };
   };
 
-  // Generate intelligent recommendations
-  const generateRecommendations = (features) => {
+  // Check if dataset has known features (exoplanet data)
+  const hasKnownFeatures = (features) => {
+    const knownKeywords = ['koi_', 'kepler', 'tess', 'planet', 'stellar', 'transit'];
+    return features.some(f => 
+      knownKeywords.some(keyword => f.name.toLowerCase().includes(keyword))
+    );
+  };
+
+  // Generate intelligent recommendations (Hybrid: Built-in + GROQ)
+  const generateRecommendations = async (features, sampleData = null) => {
+    const isKnownDataset = hasKnownFeatures(features);
+    
+    console.log(`🤖 Using ${isKnownDataset ? 'Built-in Knowledge' : 'GROQ AI'} for recommendations`);
+    
+    // Use built-in knowledge for known datasets (fast)
+    if (isKnownDataset) {
+      const featureInfos = features.map(f => ({
+        ...f,
+        info: getFeatureInfo(f.name)
+      }));
+
+      // Find best target candidates
+      const targetCandidates = featureInfos
+        .filter(f => f.info.recommendFor === 'target' && f.info.importance === 'high')
+        .sort((a, b) => {
+          const importanceOrder = { high: 3, medium: 2, low: 1 };
+          return importanceOrder[b.info.importance] - importanceOrder[a.info.importance];
+        });
+
+      // Find best feature candidates
+      const featureCandidates = featureInfos
+        .filter(f => f.info.recommendFor === 'feature' && f.info.importance !== 'low')
+        .sort((a, b) => {
+          const importanceOrder = { high: 3, medium: 2, low: 1 };
+          return importanceOrder[b.info.importance] - importanceOrder[a.info.importance];
+        });
+
+      // Features to exclude
+      const excludeFeatures = featureInfos
+        .filter(f => f.info.recommendFor === 'exclude');
+
+      return {
+        recommendedTarget: targetCandidates[0] || null,
+        alternativeTargets: targetCandidates.slice(1, 3),
+        recommendedFeatures: featureCandidates.slice(0, 5),
+        excludeFeatures: excludeFeatures,
+        source: 'built-in'
+      };
+    }
+    
+    // Use GROQ for unknown datasets (smart but slower)
+    if (useGroqForUnknown) {
+      try {
+        setIsAnalyzingFeatures(true);
+        console.log('🧠 Analyzing with GROQ AI...');
+        
+        const groqAnalysis = await analyzeWithGroq(features, sampleData);
+        
+        setIsAnalyzingFeatures(false);
+        
+        if (groqAnalysis && groqAnalysis.features && groqAnalysis.features.length > 0) {
+          // Map GROQ analysis to our format
+          const featureInfos = features.map(f => {
+            const groqInfo = groqAnalysis.features.find(gf => gf.name === f.name);
+            return {
+              ...f,
+              info: groqInfo || getFeatureInfo(f.name) // Fallback to built-in
+            };
+          });
+          
+          const targetFeature = featureInfos.find(f => f.name === groqAnalysis.recommendedTarget);
+          const recommendedFeaturesList = groqAnalysis.recommendedFeatures
+            .map(name => featureInfos.find(f => f.name === name))
+            .filter(Boolean);
+          
+          console.log('✅ GROQ analysis complete');
+          
+          return {
+            recommendedTarget: targetFeature || null,
+            alternativeTargets: [],
+            recommendedFeatures: recommendedFeaturesList,
+            excludeFeatures: featureInfos.filter(f => f.info.recommendFor === 'exclude'),
+            source: 'groq'
+          };
+        } else {
+          console.warn('GROQ returned empty analysis, falling back to built-in');
+        }
+      } catch (error) {
+        console.error('GROQ analysis failed, falling back to built-in:', error);
+        setIsAnalyzingFeatures(false);
+      }
+    }
+    
+    // Fallback to basic built-in analysis
     const featureInfos = features.map(f => ({
       ...f,
       info: getFeatureInfo(f.name)
     }));
 
-    // Find best target candidates
     const targetCandidates = featureInfos
-      .filter(f => f.info.recommendFor === 'target' && f.info.importance === 'high')
+      .filter(f => f.info.recommendFor === 'target')
       .sort((a, b) => {
         const importanceOrder = { high: 3, medium: 2, low: 1 };
         return importanceOrder[b.info.importance] - importanceOrder[a.info.importance];
       });
 
-    // Find best feature candidates
     const featureCandidates = featureInfos
-      .filter(f => f.info.recommendFor === 'feature' && f.info.importance !== 'low')
+      .filter(f => f.info.recommendFor === 'feature')
       .sort((a, b) => {
         const importanceOrder = { high: 3, medium: 2, low: 1 };
         return importanceOrder[b.info.importance] - importanceOrder[a.info.importance];
       });
-
-    // Features to exclude
-    const excludeFeatures = featureInfos
-      .filter(f => f.info.recommendFor === 'exclude');
 
     return {
       recommendedTarget: targetCandidates[0] || null,
       alternativeTargets: targetCandidates.slice(1, 3),
       recommendedFeatures: featureCandidates.slice(0, 5),
-      excludeFeatures: excludeFeatures
+      excludeFeatures: featureInfos.filter(f => f.info.recommendFor === 'exclude'),
+      source: 'built-in-fallback'
     };
   };
 
   // Categorize features from backend response
-  const categorizeFeatures = (features) => {
+  const categorizeFeatures = async (features, sampleData = null) => {
     const raw = [];
     const derived = [];
     
@@ -283,8 +373,8 @@ const DataAnalyzer = () => {
       }
     });
 
-    // Generate recommendations
-    const recs = generateRecommendations(features);
+    // Generate recommendations (async now - may use GROQ)
+    const recs = await generateRecommendations(features, sampleData);
     setRecommendations(recs);
     
     return { raw, derived };
@@ -675,11 +765,27 @@ const DataAnalyzer = () => {
             <h3 className="text-white font-semibold mb-4">Select Features to Analyze:</h3>
             
             {/* AI Recommendations */}
-            {recommendations && (
+            {isAnalyzingFeatures && (
+              <div className="mb-6 bg-gradient-to-r from-teal-900/30 to-blue-900/30 border border-teal-500/30 rounded-lg p-4">
+                <div className="flex items-center gap-3 text-teal-400">
+                  <div className="animate-spin inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full"></div>
+                  <span className="font-semibold">🧠 Analyzing features with GROQ AI...</span>
+                </div>
+                <p className="text-gray-400 text-sm mt-2">This may take a few seconds for unknown datasets</p>
+              </div>
+            )}
+            
+            {recommendations && !isAnalyzingFeatures && (
               <div className="mb-6 bg-gradient-to-r from-teal-900/30 to-blue-900/30 border border-teal-500/30 rounded-lg p-4">
                 <h4 className="text-teal-400 font-semibold mb-3 flex items-center gap-2">
                   <Sparkles size={18} />
                   AI Recommendations
+                  {recommendations.source === 'groq' && (
+                    <span className="text-xs bg-purple-600 px-2 py-0.5 rounded-full">Powered by GROQ</span>
+                  )}
+                  {recommendations.source === 'built-in' && (
+                    <span className="text-xs bg-teal-600 px-2 py-0.5 rounded-full">Built-in Knowledge</span>
+                  )}
                 </h4>
                 
                 {/* Recommended Target */}
@@ -767,17 +873,17 @@ const DataAnalyzer = () => {
                                 <div className="font-medium text-sm">{feature.name}</div>
                                 <div className="text-xs opacity-75">{feature.type}</div>
                               </div>
-                              <button
+                              <div
                                 onMouseEnter={() => setShowFeatureTooltip(feature.name)}
                                 onMouseLeave={() => setShowFeatureTooltip(null)}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setShowFeatureTooltip(showFeatureTooltip === feature.name ? null : feature.name);
                                 }}
-                                className="text-gray-400 hover:text-teal-400 ml-2"
+                                className="text-gray-400 hover:text-teal-400 ml-2 cursor-pointer"
                               >
                                 <span className="inline-block w-4 h-4 text-center border border-current rounded-full text-xs leading-4">?</span>
-                              </button>
+                              </div>
                             </div>
                           </button>
                           {showFeatureTooltip === feature.name && (
@@ -825,17 +931,17 @@ const DataAnalyzer = () => {
                                   <div className="font-medium text-sm">{feature.name}</div>
                                   <div className="text-xs opacity-75">{feature.type}</div>
                                 </div>
-                                <button
+                                <div
                                   onMouseEnter={() => setShowFeatureTooltip(feature.name)}
                                   onMouseLeave={() => setShowFeatureTooltip(null)}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setShowFeatureTooltip(showFeatureTooltip === feature.name ? null : feature.name);
                                   }}
-                                  className="text-gray-400 hover:text-purple-400 ml-2"
+                                  className="text-gray-400 hover:text-purple-400 ml-2 cursor-pointer"
                                 >
                                   <span className="inline-block w-4 h-4 text-center border border-current rounded-full text-xs leading-4">?</span>
-                                </button>
+                                </div>
                               </div>
                             </button>
                             {showFeatureTooltip === feature.name && (
