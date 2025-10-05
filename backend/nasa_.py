@@ -91,6 +91,8 @@ def pca(data, model,level):
     
     # Marcar el punt on s'arriba al 80%
     n_components_80 = np.argmax(cumulative_variance >= 0.8) + 1
+    #print('n_components_80')
+    #print(n_components_80)
     plt.axvline(x=n_components_80, color='g', linestyle='--')
     plt.text(n_components_80+0.2, 0.82,
             f"          {n_components_80} components → {cumulative_variance[n_components_80-1]*100:.1f}%",
@@ -102,7 +104,7 @@ def pca(data, model,level):
     X_scaled = StandardScaler().fit_transform(data[num_cols])
 
     # PCA amb 17 components
-    pca_17 = PCA(n_components=17)
+    pca_17 = PCA(n_components=n_components_80)
     X_pca_17 = pca_17.fit_transform(X_scaled)
 
     # Creem un DataFrame amb els 17 components
@@ -137,11 +139,15 @@ def pca(data, model,level):
 
     return data, dataset_pca, model
 
-def process_data (columns , level):  #todo target variable
+def process_data (columns , level, target):  
     dataset = pd.read_csv("./uploads/dataset.csv", sep = ",")
+    target=dataset[target]
+    dataset.drop(columns=target)
 
     df_filtrado = dataset.drop(columns=[col for col in columns if col not in dataset.columns])
     print(df_filtrado.head())
 
     d,d_pca, m, = pca (df_filtrado,'xgboost',level)
-    return d,d_pca,m
+    d.to_csv('data.csv')
+    d_pca.to_csv('data_pca.csv')
+    return d,d_pca,m,target
