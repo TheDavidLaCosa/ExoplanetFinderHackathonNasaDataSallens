@@ -71,6 +71,61 @@ def pca(df, n_components=0.95):
     
     return pca_df, pca, scaler
 
+def optimize_random_forest(X_train, y_train, n_trials=30):
+    """Optimize RandomForest using Optuna (Bayesian Optimization)"""
+    import optuna
+    from optuna.samplers import TPESampler
+    
+    def objective(trial):
+        params = {
+            'n_estimators': trial.suggest_int('n_estimators', 100, 500, step=50),
+            'max_depth': trial.suggest_int('max_depth', 5, 30),
+            'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
+            'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
+            'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2', 0.5, 0.8]),
+            'random_state': 42,
+            'n_jobs': -1
+        }
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.model_selection import cross_val_score
+        model = RandomForestRegressor(**params)
+        scores = cross_val_score(model, X_train, y_train, cv=3, scoring='r2', n_jobs=-1)
+        return scores.mean()
+    
+    study = optuna.create_study(direction='maximize', sampler=TPESampler(seed=42))
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+    
+    return study.best_params
+
+def optimize_xgboost(X_train, y_train, n_trials=30):
+    """Optimize XGBoost using Optuna (Bayesian Optimization)"""
+    import optuna
+    from optuna.samplers import TPESampler
+    
+    def objective(trial):
+        params = {
+            'max_depth': trial.suggest_int('max_depth', 3, 10),
+            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+            'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
+            'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+            'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+            'gamma': trial.suggest_float('gamma', 0, 0.5),
+            'reg_alpha': trial.suggest_float('reg_alpha', 0, 1.0),
+            'reg_lambda': trial.suggest_float('reg_lambda', 0, 2.0),
+            'random_state': 42,
+            'n_jobs': -1
+        }
+        from sklearn.model_selection import cross_val_score
+        model = xgb.XGBRegressor(**params)
+        scores = cross_val_score(model, X_train, y_train, cv=3, scoring='r2', n_jobs=-1)
+        return scores.mean()
+    
+    study = optuna.create_study(direction='maximize', sampler=TPESampler(seed=42))
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+    
+    return study.best_params
+
 def process_data(df, target_column=None, selected_features=None, use_bayesian_opt=False, model_type='XGBoost'):
     """
     Process data with full ML pipeline
@@ -83,17 +138,46 @@ def process_data(df, target_column=None, selected_features=None, use_bayesian_op
         model_type: The type of ML model to use ('XGBoost' or 'RandomForest')
     """
     try:
+        print(f"\n{'='*60}")
+        print(f"🚀 STARTING PROCESS_DATA")
+        print(f"{'='*60}")
+        print(f"Input DataFrame shape: {df.shape}")
+        print(f"Input columns: {list(df.columns)[:10]}... (showing first 10)")
+        print(f"Target column: {target_column}")
+        print(f"Selected features: {selected_features}")
+        print(f"Model type: {model_type}")
+        print(f"Use Bayesian Opt: {use_bayesian_opt}")
+        print(f"{'='*60}\n")
+        
         # Step 1: Control nulls
+        print("Step 1: Controlling nulls...")
         df_clean = control_nulls(df)
+        print(f"After control_nulls: {df_clean.shape}")
         
         # Step 2: Handle missing values with Monte Carlo
         for col in df_clean.columns:
             if df_clean[col].isna().sum() > 0:
                 df_clean[col] = montecarlo(df_clean, col)
         
-        # Step 3: Select features
+        # Step 3: Select features (ensure target is included if specified)
         if selected_features:
-            df_clean = df_clean[selected_features]
+            # Make sure target column is in the dataframe
+            if target_column and target_column not in selected_features:
+                selected_features_with_target = selected_features + [target_column]
+                print(f"🔍 DEBUG: Added target '{target_column}' to selected features")
+            else:
+                selected_features_with_target = selected_features
+            
+            # Check if all columns exist in the dataframe
+            missing_cols = [col for col in selected_features_with_target if col not in df_clean.columns]
+            if missing_cols:
+                print(f"⚠️ WARNING: Missing columns: {missing_cols}")
+                print(f"Available columns: {list(df_clean.columns)}")
+                # Remove missing columns
+                selected_features_with_target = [col for col in selected_features_with_target if col in df_clean.columns]
+            
+            print(f"🔍 DEBUG: Final selected features: {selected_features_with_target}")
+            df_clean = df_clean[selected_features_with_target]
         
         # Step 4: PCA analysis
         pca_df, pca_model, scaler = pca(df_clean)
@@ -105,29 +189,51 @@ def process_data(df, target_column=None, selected_features=None, use_bayesian_op
             X = df_clean.drop(columns=[target_column])
             y = df_clean[target_column]
             
+            print(f"\n🔍 DEBUG: Target column: {target_column}")
+            print(f"🔍 DEBUG: Features for ML: {list(X.columns)}")
+            print(f"🔍 DEBUG: X shape: {X.shape}, y shape: {y.shape}")
+            
             # Handle missing values in target
             y = y.fillna(y.mean())
             
             # Split data
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
             
-            # Train the selected model
+            print(f"\n{'='*60}")
+            print(f"🤖 MODEL SELECTION")
+            print(f"{'='*60}")
+            print(f"Requested model: {model_type}")
+            print(f"Use Bayesian Optimization: {use_bayesian_opt}")
+            
+            # Train the selected model with optional Bayesian optimization
             if model_type == 'RandomForest':
                 from sklearn.ensemble import RandomForestRegressor
-                model = RandomForestRegressor(n_estimators=100, random_state=42)
-            else:  # Default to XGBoost
                 if use_bayesian_opt:
-                    best_params = {
-                        'n_estimators': 200,
-                        'max_depth': 6,
-                        'learning_rate': 0.05,
-                        'subsample': 0.8,
-                        'colsample_bytree': 0.8
-                    }
-                    model = xgb.XGBRegressor(**best_params, random_state=42)
+                    print(f"🔬 Running Bayesian Optimization for Random Forest...")
+                    best_params = optimize_random_forest(X_train, y_train, n_trials=30)
+                    best_params['random_state'] = 42
+                    best_params['n_jobs'] = -1
+                    model = RandomForestRegressor(**best_params)
+                    print(f"✅ Optimization complete! Best params: {best_params}")
+                else:
+                    model = RandomForestRegressor(n_estimators=100, random_state=42)
+                    print(f"✅ Using default Random Forest parameters")
+            else:  # XGBoost
+                if use_bayesian_opt:
+                    print(f"🔬 Running Bayesian Optimization for XGBoost...")
+                    best_params = optimize_xgboost(X_train, y_train, n_trials=30)
+                    best_params['random_state'] = 42
+                    best_params['n_jobs'] = -1
+                    model = xgb.XGBRegressor(**best_params)
+                    print(f"✅ Optimization complete! Best params: {best_params}")
                 else:
                     model = xgb.XGBRegressor(n_estimators=100, random_state=42)
+                    print(f"✅ Using default XGBoost parameters")
             
+            print(f"Model class: {type(model).__name__}")
+            print(f"{'='*60}\n")
+            
+            # Train the model
             model.fit(X_train, y_train)
             
             # Make predictions
@@ -137,11 +243,18 @@ def process_data(df, target_column=None, selected_features=None, use_bayesian_op
             mse = mean_squared_error(y_test, y_pred)
             r2 = r2_score(y_test, y_pred)
             
+            print(f"📊 MODEL RESULTS:")
+            print(f"   MSE: {mse:.4f}")
+            print(f"   R²: {r2:.4f}")
+            print(f"   Model: {type(model).__name__}\n")
+            
             model_results = {
                 'mse': float(mse),
                 'r2': float(r2),
                 'feature_importance': {str(k): float(v) for k, v in zip(X.columns, model.feature_importances_)} if hasattr(model, 'feature_importances_') else {},
-                'bayesian_opt_used': use_bayesian_opt
+                'bayesian_opt_used': use_bayesian_opt,
+                'model_used': type(model).__name__,  # Actual model class name
+                'model_type_requested': model_type   # What was requested
             }
         
         # Step 6: Generate plots

@@ -125,10 +125,12 @@ export async function analyzeFeatures(features, sampleRows = []) {
     
     const prompt = `Analyze this dataset and provide feature recommendations for machine learning:
 
-FEATURES: ${featureList}
+AVAILABLE FEATURES IN THE DATASET: ${featureList}
 
 SAMPLE DATA:
 ${sampleData}
+
+⚠️ CRITICAL: You MUST ONLY recommend columns that exist in the AVAILABLE FEATURES list above. DO NOT suggest columns that are not in the list.
 
 Provide a JSON response with this structure:
 {
@@ -141,14 +143,16 @@ Provide a JSON response with this structure:
       "reason": "why it's useful or not"
     }
   ],
-  "recommendedTarget": "best_target_column_name",
+  "recommendedTarget": "best_target_column_name_FROM_THE_AVAILABLE_FEATURES_LIST",
   "recommendedFeatures": ["feature1", "feature2", "feature3", "feature4", "feature5"]
 }
 
 Focus on:
-1. Which column is best for prediction (target)
-2. Which features are most predictive (input features)
+1. Which column FROM THE AVAILABLE FEATURES is best for prediction (target)
+2. Which features FROM THE AVAILABLE FEATURES are most predictive (input features)
 3. Which features to exclude (IDs, redundant data)
+
+IMPORTANT: recommendedTarget and recommendedFeatures MUST be exact column names from the AVAILABLE FEATURES list.
 
 Respond ONLY with valid JSON, no markdown or explanation.`;
 

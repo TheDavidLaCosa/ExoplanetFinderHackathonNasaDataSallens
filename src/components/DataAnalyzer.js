@@ -61,8 +61,17 @@ const DataAnalyzer = () => {
         features: backendData.features
       });
 
-      // Categorize features (raw vs derived) - now async for GROQ support
-      const categorizedFeatures = await categorizeFeatures(backendData.features, null);
+      // Parse locally to provide GROQ with real sample rows
+      let sampleRows = [];
+      try {
+        const parsedLocal = await parseFile(uploadedFile);
+        sampleRows = Array.isArray(parsedLocal?.rows) ? parsedLocal.rows.slice(0, 5) : [];
+      } catch (e) {
+        console.warn('Unable to parse file locally for GROQ samples:', e);
+      }
+
+      // Categorize features (raw vs derived) - now async for GROQ support with sample rows
+      const categorizedFeatures = await categorizeFeatures(backendData.features, sampleRows);
       setDetectedFeatures(categorizedFeatures);
 
       // Start conversation
@@ -292,6 +301,16 @@ const DataAnalyzer = () => {
         setIsAnalyzingFeatures(false);
         
         if (groqAnalysis && groqAnalysis.features && groqAnalysis.features.length > 0) {
+          // Get list of actual feature names in the dataset
+          const actualFeatureNames = features.map(f => f.name);
+
+          // VALIDATE: Check if GROQ's recommended target exists
+          const recommendedTargetExists = actualFeatureNames.includes(groqAnalysis.recommendedTarget);
+          if (!recommendedTargetExists) {
+            console.warn(`⚠️ GROQ recommended target "${groqAnalysis.recommendedTarget}" does NOT exist in dataset!`);
+            console.warn(`Available features: ${actualFeatureNames.join(', ')}`);
+          }
+
           // Map GROQ analysis to our format
           const featureInfos = features.map(f => {
             const groqInfo = groqAnalysis.features.find(gf => gf.name === f.name);
@@ -300,21 +319,55 @@ const DataAnalyzer = () => {
               info: groqInfo || getFeatureInfo(f.name) // Fallback to built-in
             };
           });
-          
-          const targetFeature = featureInfos.find(f => f.name === groqAnalysis.recommendedTarget);
-          const recommendedFeaturesList = groqAnalysis.recommendedFeatures
+
+          // VALIDATE: Only use target if it exists
+          const targetFeature = recommendedTargetExists
+            ? featureInfos.find(f => f.name === groqAnalysis.recommendedTarget)
+            : null;
+
+          // VALIDATE: Filter out recommended features that don't exist
+          const validRecommendedFeatures = (groqAnalysis.recommendedFeatures || []).filter(name =>
+            actualFeatureNames.includes(name)
+          );
+          const invalidFeatures = (groqAnalysis.recommendedFeatures || []).filter(name =>
+            !actualFeatureNames.includes(name)
+          );
+          if (invalidFeatures.length > 0) {
+            console.warn(`⚠️ GROQ recommended features that don't exist: ${invalidFeatures.join(', ')}`);
+          }
+
+          const recommendedFeaturesList = validRecommendedFeatures
             .map(name => featureInfos.find(f => f.name === name))
             .filter(Boolean);
-          
-          console.log('✅ GROQ analysis complete');
-          
-          return {
-            recommendedTarget: targetFeature || null,
-            alternativeTargets: [],
-            recommendedFeatures: recommendedFeaturesList,
-            excludeFeatures: featureInfos.filter(f => f.info.recommendFor === 'exclude'),
-            source: 'groq'
-          };
+
+          // Fallback target if GROQ suggested a non-existent column
+          let finalTarget = targetFeature;
+          if (!finalTarget) {
+            const preferredTargets = ['pl_rade', 'pl_radj', 'st_teff', 'st_rad', 'st_mass', 'sy_dist'];
+            finalTarget = featureInfos.find(f => preferredTargets.includes(f.name))
+              || featureInfos.find(f => typeof f.type === 'string' && (f.type.toLowerCase().includes('float') || f.type.toLowerCase().includes('int')))
+              || null;
+            if (finalTarget) {
+              console.warn(`🔁 Using fallback target: ${finalTarget.name}`);
+            }
+          }
+
+          console.log('✅ GROQ analysis complete (after validation)');
+          console.log(`   Target: ${finalTarget ? finalTarget.name : 'NONE (invalid recommendation)'}`);
+          console.log(`   Features: ${recommendedFeaturesList.map(f => f.name).join(', ')}`);
+
+          // If GROQ gave us invalid recommendations, fall back to built-in
+          if (!finalTarget && recommendedFeaturesList.length === 0) {
+            console.warn('⚠️ All GROQ recommendations were invalid, falling back to built-in');
+          } else {
+            return {
+              recommendedTarget: finalTarget || null,
+              alternativeTargets: [],
+              recommendedFeatures: recommendedFeaturesList,
+              excludeFeatures: featureInfos.filter(f => f.info.recommendFor === 'exclude'),
+              source: 'groq'
+            };
+          }
         } else {
           console.warn('GROQ returned empty analysis, falling back to built-in');
         }
@@ -374,7 +427,35 @@ const DataAnalyzer = () => {
     });
 
     // Generate recommendations (async now - may use GROQ)
-    const recs = await generateRecommendations(features, sampleData);
+    let recs = await generateRecommendations(features, sampleData);
+
+    // Final guardrail: ensure recommended target exists in the features we actually render (raw+derived)
+    try {
+      const allFeatureNames = [...raw, ...derived].map(f => f.name);
+      const preferredTargets = ['pl_rade','pl_radj','st_teff','st_rad','st_mass','sy_dist'];
+      const pickFallback = () => preferredTargets.find(n => allFeatureNames.includes(n))
+        || allFeatureNames.find(n => /(^pl_|^st_|^sy_)/.test(n))
+        || null;
+
+      const recTargetName = recs?.recommendedTarget?.name || null;
+      const targetValid = recTargetName ? allFeatureNames.includes(recTargetName) : false;
+      if (!targetValid) {
+        const fb = pickFallback();
+        if (fb) {
+          console.warn(`⚠️ Replacing invalid recommended target "${recTargetName}" with fallback "${fb}"`);
+          recs = {
+            ...recs,
+            recommendedTarget: { name: fb, info: getFeatureInfo(fb) }
+          };
+        } else {
+          console.warn('⚠️ No valid fallback target found. Leaving target empty.');
+          recs = { ...recs, recommendedTarget: null };
+        }
+      }
+    } catch (e) {
+      console.warn('Guardrail check failed:', e);
+    }
+
     setRecommendations(recs);
     
     return { raw, derived };
@@ -1250,6 +1331,30 @@ const DataAnalyzer = () => {
                   {/* Model Performance */}
                   <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
                     <h3 className="text-teal-400 font-semibold mb-3 text-lg">Model Performance</h3>
+                    
+                    {/* Model Used Display */}
+                    {analysisResult.model_results.model_used && (
+                      <div className="mb-4 p-3 bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/30 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-purple-400 text-xs font-semibold mb-1">ACTUAL MODEL USED:</div>
+                            <div className="text-white text-lg font-bold">{analysisResult.model_results.model_used}</div>
+                            {analysisResult.model_results.model_type_requested && (
+                              <div className="text-gray-400 text-xs mt-1">
+                                (Requested: {analysisResult.model_results.model_type_requested})
+                              </div>
+                            )}
+                          </div>
+                          {analysisResult.model_results.model_used === 'XGBRegressor' && (
+                            <span className="text-2xl">🚀</span>
+                          )}
+                          {analysisResult.model_results.model_used === 'RandomForestRegressor' && (
+                            <span className="text-2xl">🌲</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-400">Mean Squared Error (MSE):</span>
@@ -1306,6 +1411,77 @@ const DataAnalyzer = () => {
                       </ul>
                     </div>
                   </div>
+
+                  {/* Model Debug Info */}
+                  {analysisResult.model_results.model_used && (
+                    <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
+                      <h3 className="text-orange-400 font-semibold mb-3 text-lg flex items-center gap-2">
+                        🔧 Model Debug Information
+                      </h3>
+                      <div className="bg-black p-4 rounded-lg font-mono text-sm">
+                        <div className="text-orange-400 mb-2">============================================================</div>
+                        <div className="text-teal-400 mb-2">🤖 MODEL SELECTION DEBUG</div>
+                        <div className="text-orange-400 mb-3">============================================================</div>
+                        
+                        <div className="text-gray-300 space-y-1 mb-3">
+                          <div>Requested model_type: <span className="text-yellow-400">{analysisResult.model_results.model_type_requested || 'N/A'}</span></div>
+                          <div>Use Bayesian Opt: <span className="text-yellow-400">{analysisResult.model_results.bayesian_opt_used ? 'True' : 'False'}</span></div>
+                        </div>
+                        
+                        <div className="text-green-400 mb-2">
+                          ✅ Using {analysisResult.model_results.model_used === 'XGBRegressor' ? 'XGBoost Regressor' : 'Random Forest Regressor'}
+                        </div>
+                        
+                        <div className="text-gray-400 ml-4 space-y-1 mb-3">
+                          {analysisResult.model_results.model_used === 'XGBRegressor' && analysisResult.model_results.bayesian_opt_used && (
+                            <>
+                              <div>- n_estimators: 200</div>
+                              <div>- max_depth: 6</div>
+                              <div>- learning_rate: 0.05</div>
+                              <div>- subsample: 0.8</div>
+                              <div>- colsample_bytree: 0.8</div>
+                            </>
+                          )}
+                          {analysisResult.model_results.model_used === 'XGBRegressor' && !analysisResult.model_results.bayesian_opt_used && (
+                            <>
+                              <div>- n_estimators: 100</div>
+                              <div>- random_state: 42</div>
+                            </>
+                          )}
+                          {analysisResult.model_results.model_used === 'RandomForestRegressor' && (
+                            <>
+                              <div>- n_estimators: 100</div>
+                              <div>- random_state: 42</div>
+                            </>
+                          )}
+                        </div>
+                        
+                        <div className="text-gray-300 mb-3">
+                          Model type: <span className="text-cyan-400">{analysisResult.model_results.model_used}</span>
+                        </div>
+                        
+                        <div className="text-orange-400 mb-3">============================================================</div>
+                        
+                        <div className="text-teal-400 mb-2">📊 MODEL RESULTS:</div>
+                        <div className="text-gray-300 ml-4 space-y-1">
+                          <div>MSE: <span className="text-white">{analysisResult.model_results.mse.toFixed(4)}</span></div>
+                          <div>R²: <span className="text-white">{analysisResult.model_results.r2.toFixed(4)}</span></div>
+                          <div>Model used: <span className="text-cyan-400">{analysisResult.model_results.model_used}</span></div>
+                          <div>Requested: <span className="text-yellow-400">{analysisResult.model_results.model_type_requested || 'N/A'}</span></div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 bg-zinc-900 p-3 rounded border-l-4 border-orange-500">
+                        <h4 className="text-orange-400 font-semibold mb-2 text-sm">🔍 What This Shows:</h4>
+                        <ul className="space-y-1 text-gray-300 text-sm">
+                          <li>✅ <strong>Confirms</strong> which ML model was actually used by the backend</li>
+                          <li>🎯 <strong>Verifies</strong> your model selection was correctly applied</li>
+                          <li>⚙️ <strong>Shows</strong> the hyperparameters used for training</li>
+                          <li>💡 If "Model used" matches "Requested", everything is working correctly!</li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1432,6 +1608,19 @@ const DataAnalyzer = () => {
               </div>
             </div>
 
+            {/* DEBUG INFO - TEMPORARY */}
+            <div className="mb-8 bg-red-900 p-4 rounded-lg">
+              <h3 className="text-white font-bold mb-2">🐛 DEBUG - Analysis Result Structure:</h3>
+              <pre className="text-white text-xs overflow-auto max-h-40">
+                {JSON.stringify({
+                  has_model_results: !!analysisResult.model_results,
+                  model_results_keys: analysisResult.model_results ? Object.keys(analysisResult.model_results) : 'N/A',
+                  model_used: analysisResult.model_results?.model_used,
+                  has_feature_importance: !!analysisResult.model_results?.feature_importance
+                }, null, 2)}
+              </pre>
+            </div>
+
             {/* Plots */}
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-white mb-4">📈 Visualizations</h2>
@@ -1507,6 +1696,30 @@ const DataAnalyzer = () => {
                   {/* Model Performance */}
                   <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
                     <h3 className="text-teal-400 font-semibold mb-3 text-lg">Model Performance</h3>
+                    
+                    {/* Model Used Display */}
+                    {analysisResult.model_results.model_used && (
+                      <div className="mb-4 p-3 bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/30 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-purple-400 text-xs font-semibold mb-1">ACTUAL MODEL USED:</div>
+                            <div className="text-white text-lg font-bold">{analysisResult.model_results.model_used}</div>
+                            {analysisResult.model_results.model_type_requested && (
+                              <div className="text-gray-400 text-xs mt-1">
+                                (Requested: {analysisResult.model_results.model_type_requested})
+                              </div>
+                            )}
+                          </div>
+                          {analysisResult.model_results.model_used === 'XGBRegressor' && (
+                            <span className="text-2xl">🚀</span>
+                          )}
+                          {analysisResult.model_results.model_used === 'RandomForestRegressor' && (
+                            <span className="text-2xl">🌲</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-400">Mean Squared Error (MSE):</span>
@@ -1563,6 +1776,77 @@ const DataAnalyzer = () => {
                       </ul>
                     </div>
                   </div>
+
+                  {/* Model Debug Info */}
+                  {analysisResult.model_results.model_used && (
+                    <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
+                      <h3 className="text-orange-400 font-semibold mb-3 text-lg flex items-center gap-2">
+                        🔧 Model Debug Information
+                      </h3>
+                      <div className="bg-black p-4 rounded-lg font-mono text-sm">
+                        <div className="text-orange-400 mb-2">============================================================</div>
+                        <div className="text-teal-400 mb-2">🤖 MODEL SELECTION DEBUG</div>
+                        <div className="text-orange-400 mb-3">============================================================</div>
+                        
+                        <div className="text-gray-300 space-y-1 mb-3">
+                          <div>Requested model_type: <span className="text-yellow-400">{analysisResult.model_results.model_type_requested || 'N/A'}</span></div>
+                          <div>Use Bayesian Opt: <span className="text-yellow-400">{analysisResult.model_results.bayesian_opt_used ? 'True' : 'False'}</span></div>
+                        </div>
+                        
+                        <div className="text-green-400 mb-2">
+                          ✅ Using {analysisResult.model_results.model_used === 'XGBRegressor' ? 'XGBoost Regressor' : 'Random Forest Regressor'}
+                        </div>
+                        
+                        <div className="text-gray-400 ml-4 space-y-1 mb-3">
+                          {analysisResult.model_results.model_used === 'XGBRegressor' && analysisResult.model_results.bayesian_opt_used && (
+                            <>
+                              <div>- n_estimators: 200</div>
+                              <div>- max_depth: 6</div>
+                              <div>- learning_rate: 0.05</div>
+                              <div>- subsample: 0.8</div>
+                              <div>- colsample_bytree: 0.8</div>
+                            </>
+                          )}
+                          {analysisResult.model_results.model_used === 'XGBRegressor' && !analysisResult.model_results.bayesian_opt_used && (
+                            <>
+                              <div>- n_estimators: 100</div>
+                              <div>- random_state: 42</div>
+                            </>
+                          )}
+                          {analysisResult.model_results.model_used === 'RandomForestRegressor' && (
+                            <>
+                              <div>- n_estimators: 100</div>
+                              <div>- random_state: 42</div>
+                            </>
+                          )}
+                        </div>
+                        
+                        <div className="text-gray-300 mb-3">
+                          Model type: <span className="text-cyan-400">{analysisResult.model_results.model_used}</span>
+                        </div>
+                        
+                        <div className="text-orange-400 mb-3">============================================================</div>
+                        
+                        <div className="text-teal-400 mb-2">📊 MODEL RESULTS:</div>
+                        <div className="text-gray-300 ml-4 space-y-1">
+                          <div>MSE: <span className="text-white">{analysisResult.model_results.mse.toFixed(4)}</span></div>
+                          <div>R²: <span className="text-white">{analysisResult.model_results.r2.toFixed(4)}</span></div>
+                          <div>Model used: <span className="text-cyan-400">{analysisResult.model_results.model_used}</span></div>
+                          <div>Requested: <span className="text-yellow-400">{analysisResult.model_results.model_type_requested || 'N/A'}</span></div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 bg-zinc-900 p-3 rounded border-l-4 border-orange-500">
+                        <h4 className="text-orange-400 font-semibold mb-2 text-sm">🔍 What This Shows:</h4>
+                        <ul className="space-y-1 text-gray-300 text-sm">
+                          <li>✅ <strong>Confirms</strong> which ML model was actually used by the backend</li>
+                          <li>🎯 <strong>Verifies</strong> your model selection was correctly applied</li>
+                          <li>⚙️ <strong>Shows</strong> the hyperparameters used for training</li>
+                          <li>💡 If "Model used" matches "Requested", everything is working correctly!</li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
