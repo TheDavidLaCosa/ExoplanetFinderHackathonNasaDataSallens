@@ -44,15 +44,10 @@ class ExoplanetModelSelector:
 		"""
 		Creating Random Forest optimized
 		"""
-		# Normaliza a numpy para chequeos robustos (funciona con DataFrame/Series o ndarray)
 		X_values = np.asarray(X_train)
 		y_values = np.asarray(y_train)
-		assert np.isfinite(X_values).all() and not np.isnan(X_values).any(), "X_train contiene Inf/NaN"
-		assert np.isfinite(y_values).all() and not np.isnan(y_values).any(), "y_train contiene Inf/NaN"
-
 		def objective(trial):
 			n_samples = len(y_values)
-			# Límites seguros para datasets pequeños
 			min_leaf_max = max(1, min(500, n_samples // 50))
 			min_samples_leaf = trial.suggest_int('min_samples_leaf', 1, min_leaf_max)
 			min_split_max = max(2, min(2000, n_samples // 20))
@@ -72,7 +67,6 @@ class ExoplanetModelSelector:
 				'n_jobs': -1
 			}
 			model = RandomForestClassifier(**params)
-			# Validación estratificada segura
 			min_class_count = int(np.min(np.bincount(y_values)))
 			if min_class_count < 2:
 				return 0.0
@@ -322,7 +316,7 @@ def train_model(model_type: str,
 
 
 
-def exoplanet_model_switch(dataset: pd.DataFrame, model_type: str) -> dict:
+def exoplanet_model_switch(data: pd.DataFrame, model_type: str, target: pd.DataFrame) -> dict:
 	"""
     Switch the model
 
@@ -344,11 +338,8 @@ def exoplanet_model_switch(dataset: pd.DataFrame, model_type: str) -> dict:
 	X_test =
 	y_test =
 	"""
-	X = dataset.drop(columns=["koi_disposition"])
-	y = dataset["koi_disposition"]
-	X = X.select_dtypes(include=[np.number])
-	le = LabelEncoder()
-	y = le.fit_transform(y)
+	X = data
+	y = target
 	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42, stratify=y) #Train, test
 
     # SWITCH 
@@ -356,21 +347,3 @@ def exoplanet_model_switch(dataset: pd.DataFrame, model_type: str) -> dict:
 		return train_model(model_type, X_train, y_train, X_test, y_test)
 	else:
 		raise ValueError(f"model_type debe ser 'rf', 'xgb': {model_type}")
-
-
-if __name__ == "__main__":
-	data = pd.read_csv("requirements.csv")
-	exoplanet_model_switch(data, "rf")
-	if len(sys.argv) != 3:
-		sys.exit(1)
-
-	csv_path = sys.argv[1]
-	model_type = sys.argv[2]
-
-	try:
-		data = pd.read_csv(csv_path)
-	except FileNotFoundError:
-		print(f"File not found: {csv_path}")
-		sys.exit(1)
-
-	exoplanet_model_switch(data, model_type)
