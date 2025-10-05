@@ -1,15 +1,30 @@
-version: "3.9"
 services:
   backend:
     build: ./backend
     container_name: datapilot-backend
     ports:
       - "4000:4000"
+    environment:
+      APP_MODULE: "backend_features:app"   # canvia-ho si el teu app és a un altre fitxer
+      WORKERS: "2"
+      THREADS: "4"
+      TIMEOUT: "120"
+      # (opcional) si actives CORS al backend, pots llegir això
+      CORS_ALLOW_ORIGINS: "http://localhost:3000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/img:/app/img
+    restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # L'URL amb què es compilarà React (el navegador cridarà aquí)
+        REACT_APP_API_URL: "http://localhost:4000"
     container_name: datapilot-frontend
     depends_on:
       - backend
     ports:
-      - "3000:80"
+      - "3000:3000"
+    restart: unless-stopped
