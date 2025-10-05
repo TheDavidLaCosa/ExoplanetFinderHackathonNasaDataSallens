@@ -269,6 +269,47 @@ const DataAnalyzer = () => {
     }, 500);
   };
 
+  // Get plot description and analysis tips
+  const getPlotInfo = (plotKey) => {
+    const plotInfo = {
+      correlation: {
+        title: 'Correlation Matrix',
+        description: 'Shows relationships between features. Values range from -1 to 1.',
+        tips: [
+          '🔴 Red (positive): Features increase together',
+          '🔵 Blue (negative): One increases, other decreases',
+          '⚪ White (near 0): No linear relationship',
+          '💡 Look for strong correlations (>0.7 or <-0.7) to understand feature dependencies'
+        ]
+      },
+      pca: {
+        title: 'Principal Component Analysis (PCA)',
+        description: 'Reduces data to 2D while preserving variance. Each point is a data sample.',
+        tips: [
+          '📊 Clusters indicate similar data points',
+          '📏 Spread shows data variance',
+          '🎯 Outliers appear far from main cluster',
+          '💡 Use this to identify patterns and data structure'
+        ]
+      },
+      feature_importance: {
+        title: 'Feature Importance',
+        description: 'Shows which features most influence the prediction target.',
+        tips: [
+          '📊 Longer bars = more important features',
+          '🎯 Top features have strongest predictive power',
+          '✂️ Consider removing low-importance features',
+          '💡 Focus on top 3-5 features for insights'
+        ]
+      }
+    };
+    return plotInfo[plotKey] || { 
+      title: plotKey.replace('_', ' '), 
+      description: 'Data visualization',
+      tips: []
+    };
+  };
+
   // Download report
   const downloadReport = (format) => {
     if (!analysisResult) return;
@@ -675,33 +716,102 @@ const DataAnalyzer = () => {
             {/* Plots */}
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-white mb-4">📈 Visualizations</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {analysisResult.plots && Object.entries(analysisResult.plots).map(([key, imageData]) => (
-                  <div key={key} className="bg-zinc-800 p-4 rounded-lg">
-                    <h3 className="text-white font-semibold mb-2 capitalize">{key.replace('_', ' ')}</h3>
-                    <img src={imageData} alt={key} className="w-full rounded mb-2" />
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 gap-6">
+                {analysisResult.plots && Object.entries(analysisResult.plots).map(([key, imageData]) => {
+                  const plotInfo = getPlotInfo(key);
+                  return (
+                    <div key={key} className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
+                      {/* Plot Header */}
+                      <div className="mb-4">
+                        <h3 className="text-white font-bold text-xl mb-2">{plotInfo.title}</h3>
+                        <p className="text-gray-400 text-sm">{plotInfo.description}</p>
+                      </div>
+                      
+                      {/* Plot Image */}
+                      <div className="bg-white p-4 rounded-lg mb-4">
+                        <img src={imageData} alt={key} className="w-full rounded" />
+                      </div>
+                      
+                      {/* Analysis Tips */}
+                      {plotInfo.tips.length > 0 && (
+                        <div className="bg-zinc-900 p-4 rounded-lg border-l-4 border-teal-500">
+                          <h4 className="text-teal-400 font-semibold mb-2 text-sm">📖 How to Read This Plot:</h4>
+                          <ul className="space-y-1">
+                            {plotInfo.tips.map((tip, idx) => (
+                              <li key={idx} className="text-gray-300 text-sm">{tip}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* ML Results */}
             {analysisResult.xgb_results && (
-              <div>
+              <div className="mb-8">
                 <h2 className="text-2xl font-bold text-white mb-4">🤖 Machine Learning Results</h2>
                 <div className="space-y-4">
-                  <div className="bg-zinc-800 p-4 rounded-lg">
-                    <h3 className="text-teal-400 font-semibold mb-2">Model Performance</h3>
-                    <p className="text-gray-300">Mean Squared Error: {analysisResult.xgb_results.mse.toFixed(2)}</p>
-                    <p className="text-gray-300">R² Score: {analysisResult.xgb_results.r2.toFixed(4)}</p>
+                  {/* Model Performance */}
+                  <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
+                    <h3 className="text-teal-400 font-semibold mb-3 text-lg">Model Performance</h3>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Mean Squared Error (MSE):</span>
+                        <span className="text-white font-bold">{analysisResult.xgb_results.mse.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">R² Score:</span>
+                        <span className={`font-bold ${analysisResult.xgb_results.r2 > 0.7 ? 'text-green-400' : analysisResult.xgb_results.r2 > 0.3 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {analysisResult.xgb_results.r2.toFixed(4)}
+                        </span>
+                      </div>
+                      {analysisResult.xgb_results.bayesian_opt_used && (
+                        <div className="mt-2 text-teal-400 text-sm">
+                          ✨ Bayesian Optimization was used
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-zinc-900 p-3 rounded border-l-4 border-blue-500">
+                      <h4 className="text-blue-400 font-semibold mb-2 text-sm">📖 Understanding the Metrics:</h4>
+                      <ul className="space-y-1 text-gray-300 text-sm">
+                        <li><strong>MSE:</strong> Average squared difference between predictions and actual values. Lower is better.</li>
+                        <li><strong>R² Score:</strong> How well the model explains variance (0-1). Above 0.7 is good, above 0.9 is excellent.</li>
+                        <li>💡 Negative R² means the model performs worse than simply predicting the mean.</li>
+                      </ul>
+                    </div>
                   </div>
-                  <div className="bg-zinc-800 p-4 rounded-lg">
-                    <h3 className="text-teal-400 font-semibold mb-2">Feature Importance</h3>
-                    {Object.entries(analysisResult.xgb_results.feature_importance).map(([feature, importance]) => (
-                      <p key={feature} className="text-gray-300">
-                        {feature}: {(importance * 100).toFixed(1)}%
-                      </p>
-                    ))}
+
+                  {/* Feature Importance */}
+                  <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
+                    <h3 className="text-teal-400 font-semibold mb-3 text-lg">Feature Importance</h3>
+                    <div className="space-y-2 mb-4">
+                      {Object.entries(analysisResult.xgb_results.feature_importance)
+                        .sort(([,a], [,b]) => b - a)
+                        .map(([feature, importance]) => (
+                          <div key={feature} className="flex items-center gap-3">
+                            <span className="text-gray-300 text-sm w-32 truncate">{feature}</span>
+                            <div className="flex-1 bg-zinc-700 rounded-full h-6 overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-teal-500 to-blue-500 h-full flex items-center justify-end pr-2"
+                                style={{ width: `${importance * 100}%` }}
+                              >
+                                <span className="text-white text-xs font-bold">{(importance * 100).toFixed(1)}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                    <div className="bg-zinc-900 p-3 rounded border-l-4 border-purple-500">
+                      <h4 className="text-purple-400 font-semibold mb-2 text-sm">📖 How to Use This:</h4>
+                      <ul className="space-y-1 text-gray-300 text-sm">
+                        <li>🎯 <strong>Top features</strong> have the most impact on predictions</li>
+                        <li>✂️ <strong>Low importance features</strong> (&lt;5%) can often be removed</li>
+                        <li>💡 Focus your analysis on the top 3-5 most important features</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
