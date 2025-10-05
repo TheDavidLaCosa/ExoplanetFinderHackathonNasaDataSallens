@@ -170,7 +170,12 @@ def train_and_eval(
     X_train, X_test, y_train, y_test = train_test_split(
         X, y_enc, test_size=test_size, stratify=y_enc, random_state=random_state
     )
-
+    def _cast_to_category(df):
+        X2 = df.copy()
+        for c in X2.columns:
+            if X2[c].dtype == "object" or str(X2[c].dtype).startswith(("string",)):
+                X2[c]=X2[c].astype("category")
+        return X2         
     # ---------- Model + Optimització ----------
     best_params = None
     if use_bayes:
@@ -195,6 +200,10 @@ def train_and_eval(
             # Completem params obligats per XGB
             xgb_params = {**best_params}
             if model_type == "xgboost":
+                X_train = _cast_to_category(X_train)
+                X_test = _cast_to_category(X_test)
+                y_train = _cast_to_category(y_train)
+                y_test = _cast_to_category(y_test)
                 if n_classes == 2 and "objective" not in xgb_params:
                     xgb_params["objective"] = "binary:logistic"
                 elif n_classes > 2:
