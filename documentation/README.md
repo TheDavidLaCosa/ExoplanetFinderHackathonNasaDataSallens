@@ -1,8 +1,8 @@
-# 🚀 NASA Exoplanet Neural Network Playground
+# 🚀 NASA DataPilot
 
-**A World Away: Hunting for Exoplanets with AI**
+**Your AI Copilot for NASA Data Analysis**
 
-An interactive web application that trains neural networks on real NASA exoplanet data to classify exoplanet candidates. Built for the [NASA Space Apps Challenge 2025](https://www.spaceappschallenge.org/2025/challenges/a-world-away-hunting-for-exoplanets-with-ai/).
+An interactive web application that trains neural networks on real NASA data, starting with exoplanet classification. Features an AI chat interface, interactive neural network playground, and comprehensive data exploration tools. Built for the [NASA Space Apps Challenge 2025](https://www.spaceappschallenge.org/2025/challenges/a-world-away-hunting-for-exoplanets-with-ai/).
 
 ---
 
@@ -18,18 +18,26 @@ An interactive web application that trains neural networks on real NASA exoplane
 
 ## 📋 Summary
 
-Data from several different space-based exoplanet surveying missions have enabled discovery of thousands of new planets outside our solar system, but most of these exoplanets were identified manually. With advances in artificial intelligence and machine learning (AI/ML), it is possible to automatically analyze large sets of data collected by these missions to identify exoplanets.
+NASA DataPilot is an AI-powered platform for analyzing NASA's open-source datasets through an interactive web interface. The platform combines:
 
-This project creates an AI/ML model that is trained on NASA's open-source exoplanet datasets and can analyze new data to accurately identify exoplanets through an interactive web interface.
+- **AI Chat Interface**: A GPT-like assistant that helps users understand and explore NASA data
+- **Neural Network Playground**: Interactive ML training on real NASA datasets
+- **Data Browser**: Explore multiple NASA missions and detection methods
+- **Knowledge Base**: Learn about exoplanets, detection methods, and space missions
+
+Currently focused on exoplanet classification using data from Kepler, TESS, and other missions, with the architecture designed to support any NASA dataset in the future.
 
 ---
 
 ## ✨ Features
 
+- 🤖 **AI Chat Interface** - GPT-like conversational interface for exploring exoplanets
 - 🛰️ **Real NASA Data Integration** - Fetches live data from NASA Exoplanet Archive
 - 🧠 **Neural Network Training** - Real-time interactive neural network visualization
 - 📊 **Multiple Datasets** - Support for Kepler, TESS, and all confirmed exoplanets
-- 🎨 **Beautiful UI** - Modern, responsive interface built with React and Tailwind CSS
+- 🗄️ **Data Browser** - Explore all NASA exoplanet datasets with statistics
+- 📚 **NWiki** - Knowledge base with articles about exoplanets and detection methods
+- 🎨 **Beautiful Space-Themed UI** - NASA-inspired dark interface with glass morphism
 - 🔍 **Data Verification** - Built-in verification panel to confirm real NASA data
 - 📈 **Live Statistics** - Real-time training loss and dataset statistics
 - 🎛️ **Hyperparameter Tuning** - Adjust learning rate, activation functions, regularization
@@ -68,6 +76,15 @@ This project creates an AI/ML model that is trained on NASA's open-source exopla
 
 ## 📖 Usage
 
+### Chat Interface (Landing Page)
+1. **Ask Questions** - Use the AI chat to learn about exoplanets
+2. **Quick Prompts** - Click suggested questions to start conversations
+3. **Navigate** - Use the three action buttons:
+   - **Dashboard** - Train neural networks
+   - **Data** - Browse NASA datasets
+   - **NWiki** - Read knowledge base articles
+
+### Dashboard (Neural Network Training)
 1. **Select a Dataset** - Choose from Kepler, TESS, or All Confirmed exoplanets
 2. **Load NASA Data** - Click the "Load NASA Data" button to fetch real exoplanet data
 3. **Configure Network** - Adjust layers, neurons, learning rate, and activation functions
@@ -120,6 +137,7 @@ Our application supports multiple NASA exoplanet datasets:
 
 Comprehensive documentation is available in the repository:
 
+- **[NASA_CHAT_INTERFACE.md](NASA_CHAT_INTERFACE.md)** - Chat interface and navigation guide
 - **[QUICK_START.md](QUICK_START.md)** - Fast setup guide
 - **[SETUP_COMPLETE.md](SETUP_COMPLETE.md)** - Complete feature documentation
 - **[HOW_TO_VERIFY_NASA_DATA.md](HOW_TO_VERIFY_NASA_DATA.md)** - Data verification guide
