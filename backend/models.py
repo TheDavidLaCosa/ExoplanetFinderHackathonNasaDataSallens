@@ -185,6 +185,8 @@ def train_and_eval(
                 model = RandomForestClassifier(**params)
             else:
                 params = _xgb_suggest(trial, n_classes)
+                params["enable_categorical"] = True
+                params.setdefault("tree_method", "hist")
                 model = XGBClassifier(**params)
             # fem servir f1_weighted per robustesa multiclasse desequilibrada
             return _cv_score(model, X_train, y_train, scoring="f1_weighted", cv_splits=3)
@@ -199,11 +201,14 @@ def train_and_eval(
         else:
             # Completem params obligats per XGB
             xgb_params = {**best_params}
+            xgb_params["enable_categorical"] = True    
+            xgb_params.setdefault("tree_method", "hist")
+            xgb_params.setdefault("n_jobs", -1)
+            xgb_params.setdefault("random_state", random_state)
+
             if model_type == "xgboost":
                 X_train = _cast_to_category(X_train)
                 X_test = _cast_to_category(X_test)
-                y_train = _cast_to_category(y_train)
-                y_test = _cast_to_category(y_test)
                 if n_classes == 2 and "objective" not in xgb_params:
                     xgb_params["objective"] = "binary:logistic"
                 elif n_classes > 2:
@@ -212,6 +217,9 @@ def train_and_eval(
                 xgb_params.setdefault("tree_method", "hist")
                 xgb_params.setdefault("n_jobs", -1)
                 xgb_params.setdefault("random_state", random_state)
+
+            X_train = _cast_to_category(X_train)
+            X_test  = _cast_to_category(X_test)
             model = XGBClassifier(**xgb_params)
     else:
         # Defaults sensats
@@ -225,11 +233,14 @@ def train_and_eval(
                 n_estimators=600, max_depth=8, learning_rate=0.05, subsample=0.9,
                 colsample_bytree=0.9, min_child_weight=1.0, reg_lambda=1.0, reg_alpha=0.0,
                 random_state=random_state, n_jobs=-1, tree_method="hist",
-                eval_metric="mlogloss"
+                eval_metric="mlogloss", enable_categorical=True
             )
             params["objective"] = "binary:logistic" if n_classes == 2 else "multi:softprob"
             if n_classes > 2:
                 params["num_class"] = n_classes
+
+            X_train = _cast_to_category(X_train)
+            X_test = _cast_to_category(X_test)
             model = XGBClassifier(**params)
 
     # ---------- Train ----------
