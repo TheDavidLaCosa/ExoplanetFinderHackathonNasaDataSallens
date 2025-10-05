@@ -213,7 +213,7 @@ def handle_excel():
         results = exoplanet_model_switch(data, model,target)
         results_pca = exoplanet_model_switch(data_pca, model,target)        
         CLEANED_CSV_PATHS[upload_id] = cleaned_path
-
+ 
         return render_template_string(
             TPL_COLUMNS,
             filename=file.filename,
