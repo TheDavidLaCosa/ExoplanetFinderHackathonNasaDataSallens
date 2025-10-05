@@ -600,12 +600,26 @@ const DataAnalyzer = () => {
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-white mb-4">📊 Summary Statistics</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {analysisResult.statistics.map((stat, idx) => (
-                  <div key={idx} className="bg-zinc-800 p-4 rounded-lg border-l-4 border-teal-500">
-                    <div className="text-gray-400 text-sm">{stat.label}</div>
-                    <div className="text-white text-2xl font-bold">{stat.value}</div>
-                  </div>
-                ))}
+                <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-teal-500">
+                  <div className="text-gray-400 text-sm">Data Shape</div>
+                  <div className="text-white text-2xl font-bold">{analysisResult.data_shape ? `${analysisResult.data_shape[0]} × ${analysisResult.data_shape[1]}` : 'N/A'}</div>
+                </div>
+                <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-purple-500">
+                  <div className="text-gray-400 text-sm">PCA Components</div>
+                  <div className="text-white text-2xl font-bold">{analysisResult.pca_components || 'N/A'}</div>
+                </div>
+                {analysisResult.xgb_results && (
+                  <>
+                    <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-blue-500">
+                      <div className="text-gray-400 text-sm">R² Score</div>
+                      <div className="text-white text-2xl font-bold">{analysisResult.xgb_results.r2.toFixed(3)}</div>
+                    </div>
+                    <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-green-500">
+                      <div className="text-gray-400 text-sm">MSE</div>
+                      <div className="text-white text-2xl font-bold">{analysisResult.xgb_results.mse.toFixed(0)}</div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -613,28 +627,36 @@ const DataAnalyzer = () => {
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-white mb-4">📈 Visualizations</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {analysisResult.plots.map((plot, idx) => (
-                  <div key={idx} className="bg-zinc-800 p-4 rounded-lg">
-                    <h3 className="text-white font-semibold mb-2">{plot.title}</h3>
-                    <img src={plot.imageBase64} alt={plot.title} className="w-full rounded mb-2" />
-                    <p className="text-gray-400 text-sm">{plot.description}</p>
+                {analysisResult.plots && Object.entries(analysisResult.plots).map(([key, imageData]) => (
+                  <div key={key} className="bg-zinc-800 p-4 rounded-lg">
+                    <h3 className="text-white font-semibold mb-2 capitalize">{key.replace('_', ' ')}</h3>
+                    <img src={imageData} alt={key} className="w-full rounded mb-2" />
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Insights */}
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-4">🔍 AI Insights</h2>
-              <div className="space-y-4">
-                {analysisResult.insights.map((insight, idx) => (
-                  <div key={idx} className="bg-zinc-800 p-4 rounded-lg">
-                    <h3 className="text-teal-400 font-semibold mb-2">{insight.title}</h3>
-                    <p className="text-gray-300">{insight.description}</p>
+            {/* ML Results */}
+            {analysisResult.xgb_results && (
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-4">🤖 Machine Learning Results</h2>
+                <div className="space-y-4">
+                  <div className="bg-zinc-800 p-4 rounded-lg">
+                    <h3 className="text-teal-400 font-semibold mb-2">Model Performance</h3>
+                    <p className="text-gray-300">Mean Squared Error: {analysisResult.xgb_results.mse.toFixed(2)}</p>
+                    <p className="text-gray-300">R² Score: {analysisResult.xgb_results.r2.toFixed(4)}</p>
                   </div>
-                ))}
+                  <div className="bg-zinc-800 p-4 rounded-lg">
+                    <h3 className="text-teal-400 font-semibold mb-2">Feature Importance</h3>
+                    {Object.entries(analysisResult.xgb_results.feature_importance).map(([feature, importance]) => (
+                      <p key={feature} className="text-gray-300">
+                        {feature}: {(importance * 100).toFixed(1)}%
+                      </p>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Footer */}
