@@ -18,6 +18,8 @@ const DataAnalyzer = () => {
   const [selectedModel, setSelectedModel] = useState('XGBoost');
   const [showCorrelationInfo, setShowCorrelationInfo] = useState(false);
   const [showPCAInfo, setShowPCAInfo] = useState(false);
+  const [showFeatureTooltip, setShowFeatureTooltip] = useState(null);
+  const [recommendations, setRecommendations] = useState(null);
   const fileInputRef = useRef(null);
 
   // File upload handler - now sends to backend first
@@ -78,6 +80,189 @@ const DataAnalyzer = () => {
     }
   };
 
+  // Get feature description and metadata
+  const getFeatureInfo = (featureName) => {
+    const name = featureName.toLowerCase();
+    
+    // Exoplanet-specific features
+    const exoplanetFeatures = {
+      'koi_period': {
+        description: 'Orbital period of the planet candidate in days',
+        importance: 'high',
+        recommendFor: 'target',
+        reason: 'Key physical property that affects habitability and detection'
+      },
+      'koi_prad': {
+        description: 'Planetary radius in Earth radii',
+        importance: 'high',
+        recommendFor: 'target',
+        reason: 'Direct indicator of planet size and type (rocky vs gas giant)'
+      },
+      'koi_teq': {
+        description: 'Equilibrium temperature in Kelvin',
+        importance: 'high',
+        recommendFor: 'target',
+        reason: 'Indicates potential habitability and atmospheric conditions'
+      },
+      'koi_insol': {
+        description: 'Insolation flux (stellar energy received)',
+        importance: 'high',
+        recommendFor: 'feature',
+        reason: 'Strongly correlates with temperature and habitability'
+      },
+      'koi_srad': {
+        description: 'Stellar radius in solar radii',
+        importance: 'medium',
+        recommendFor: 'feature',
+        reason: 'Host star property affecting planet detection and characteristics'
+      },
+      'koi_smass': {
+        description: 'Stellar mass in solar masses',
+        importance: 'medium',
+        recommendFor: 'feature',
+        reason: 'Determines orbital dynamics and stellar lifetime'
+      },
+      'koi_steff': {
+        description: 'Stellar effective temperature in Kelvin',
+        importance: 'medium',
+        recommendFor: 'feature',
+        reason: 'Indicates star type and affects planetary conditions'
+      },
+      'koi_depth': {
+        description: 'Transit depth in parts per million',
+        importance: 'high',
+        recommendFor: 'feature',
+        reason: 'Direct measurement used to calculate planet size'
+      },
+      'koi_duration': {
+        description: 'Transit duration in hours',
+        importance: 'medium',
+        recommendFor: 'feature',
+        reason: 'Related to orbital parameters and planet size'
+      },
+      'koi_impact': {
+        description: 'Impact parameter (0=center, 1=edge)',
+        importance: 'low',
+        recommendFor: 'feature',
+        reason: 'Affects transit shape but less predictive of planet properties'
+      },
+      'koi_snr': {
+        description: 'Signal-to-noise ratio of detection',
+        importance: 'low',
+        recommendFor: 'feature',
+        reason: 'Measurement quality indicator, not a physical property'
+      }
+    };
+
+    // Check if it's a known exoplanet feature
+    for (const [key, info] of Object.entries(exoplanetFeatures)) {
+      if (name.includes(key)) {
+        return info;
+      }
+    }
+
+    // Generic feature type detection
+    if (name.includes('temp') || name.includes('temperature')) {
+      return {
+        description: 'Temperature measurement',
+        importance: 'high',
+        recommendFor: 'target',
+        reason: 'Temperature is often a key prediction target'
+      };
+    }
+    if (name.includes('mass')) {
+      return {
+        description: 'Mass measurement',
+        importance: 'high',
+        recommendFor: 'target',
+        reason: 'Mass is a fundamental physical property'
+      };
+    }
+    if (name.includes('radius') || name.includes('size')) {
+      return {
+        description: 'Size/radius measurement',
+        importance: 'high',
+        recommendFor: 'target',
+        reason: 'Size is a key classification parameter'
+      };
+    }
+    if (name.includes('distance') || name.includes('dist')) {
+      return {
+        description: 'Distance measurement',
+        importance: 'medium',
+        recommendFor: 'feature',
+        reason: 'Spatial information can be predictive'
+      };
+    }
+    if (name.includes('flux') || name.includes('luminosity')) {
+      return {
+        description: 'Energy flux measurement',
+        importance: 'high',
+        recommendFor: 'feature',
+        reason: 'Energy received affects physical conditions'
+      };
+    }
+    if (name.includes('ratio') || name.includes('rate')) {
+      return {
+        description: 'Derived ratio or rate',
+        importance: 'medium',
+        recommendFor: 'feature',
+        reason: 'Ratios can reveal important relationships'
+      };
+    }
+    if (name.includes('id') || name.includes('name') || name.includes('flag')) {
+      return {
+        description: 'Identifier or categorical flag',
+        importance: 'low',
+        recommendFor: 'exclude',
+        reason: 'Non-numeric identifiers are not useful for ML models'
+      };
+    }
+
+    // Default
+    return {
+      description: 'Numerical feature',
+      importance: 'medium',
+      recommendFor: 'feature',
+      reason: 'Can be used as input feature for analysis'
+    };
+  };
+
+  // Generate intelligent recommendations
+  const generateRecommendations = (features) => {
+    const featureInfos = features.map(f => ({
+      ...f,
+      info: getFeatureInfo(f.name)
+    }));
+
+    // Find best target candidates
+    const targetCandidates = featureInfos
+      .filter(f => f.info.recommendFor === 'target' && f.info.importance === 'high')
+      .sort((a, b) => {
+        const importanceOrder = { high: 3, medium: 2, low: 1 };
+        return importanceOrder[b.info.importance] - importanceOrder[a.info.importance];
+      });
+
+    // Find best feature candidates
+    const featureCandidates = featureInfos
+      .filter(f => f.info.recommendFor === 'feature' && f.info.importance !== 'low')
+      .sort((a, b) => {
+        const importanceOrder = { high: 3, medium: 2, low: 1 };
+        return importanceOrder[b.info.importance] - importanceOrder[a.info.importance];
+      });
+
+    // Features to exclude
+    const excludeFeatures = featureInfos
+      .filter(f => f.info.recommendFor === 'exclude');
+
+    return {
+      recommendedTarget: targetCandidates[0] || null,
+      alternativeTargets: targetCandidates.slice(1, 3),
+      recommendedFeatures: featureCandidates.slice(0, 5),
+      excludeFeatures: excludeFeatures
+    };
+  };
+
   // Categorize features from backend response
   const categorizeFeatures = (features) => {
     const raw = [];
@@ -97,6 +282,10 @@ const DataAnalyzer = () => {
         raw.push(feature);
       }
     });
+
+    // Generate recommendations
+    const recs = generateRecommendations(features);
+    setRecommendations(recs);
     
     return { raw, derived };
   };
@@ -485,26 +674,132 @@ const DataAnalyzer = () => {
           <div className="bg-zinc-900 p-6 border-t border-zinc-800">
             <h3 className="text-white font-semibold mb-4">Select Features to Analyze:</h3>
             
+            {/* AI Recommendations */}
+            {recommendations && (
+              <div className="mb-6 bg-gradient-to-r from-teal-900/30 to-blue-900/30 border border-teal-500/30 rounded-lg p-4">
+                <h4 className="text-teal-400 font-semibold mb-3 flex items-center gap-2">
+                  <Sparkles size={18} />
+                  AI Recommendations
+                </h4>
+                
+                {/* Recommended Target */}
+                {recommendations.recommendedTarget && (
+                  <div className="mb-3">
+                    <div className="text-yellow-400 text-sm font-medium mb-1">🎯 Recommended Target:</div>
+                    <div className="bg-zinc-800 p-3 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-white font-medium">{recommendations.recommendedTarget.name}</div>
+                          <div className="text-gray-400 text-xs mt-1">{recommendations.recommendedTarget.info.description}</div>
+                          <div className="text-teal-400 text-xs mt-1">💡 {recommendations.recommendedTarget.info.reason}</div>
+                        </div>
+                        <button
+                          onClick={() => setSelectedTarget(recommendations.recommendedTarget.name)}
+                          className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                        >
+                          Use
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Recommended Features */}
+                {recommendations.recommendedFeatures.length > 0 && (
+                  <div>
+                    <div className="text-blue-400 text-sm font-medium mb-1">✨ Recommended Features:</div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {recommendations.recommendedFeatures.map(feature => (
+                        <div key={feature.name} className="bg-zinc-800 p-2 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="text-white text-sm font-medium">{feature.name}</div>
+                              <div className="text-gray-400 text-xs">{feature.info.description}</div>
+                            </div>
+                            <button
+                              onClick={() => toggleFeature(feature.name)}
+                              className={`px-3 py-1 rounded text-xs transition-colors ${
+                                selectedFeatures.includes(feature.name)
+                                  ? 'bg-teal-600 text-white'
+                                  : 'bg-zinc-700 text-gray-300 hover:bg-zinc-600'
+                              }`}
+                            >
+                              {selectedFeatures.includes(feature.name) ? '✓ Selected' : 'Select'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => {
+                        const featureNames = recommendations.recommendedFeatures.map(f => f.name);
+                        setSelectedFeatures(featureNames);
+                      }}
+                      className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm transition-colors"
+                    >
+                      Select All Recommended Features
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            
             {detectedFeatures && (
               <div className="space-y-4">
                 {/* Raw Features */}
                 <div>
                   <h4 className="text-teal-400 text-sm font-medium mb-2">Raw Features</h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {detectedFeatures.raw.map(feature => (
-                      <button
-                        key={feature.name}
-                        onClick={() => toggleFeature(feature.name)}
-                        className={`p-3 rounded-lg text-left transition-colors ${
-                          selectedFeatures.includes(feature.name)
-                            ? 'bg-teal-600 text-white'
-                            : 'bg-zinc-800 text-gray-300 hover:bg-zinc-700'
-                        }`}
-                      >
-                        <div className="font-medium text-sm">{feature.name}</div>
-                        <div className="text-xs opacity-75">{feature.type}</div>
-                      </button>
-                    ))}
+                    {detectedFeatures.raw.map(feature => {
+                      const info = getFeatureInfo(feature.name);
+                      return (
+                        <div key={feature.name} className="relative group">
+                          <button
+                            onClick={() => toggleFeature(feature.name)}
+                            className={`w-full p-3 rounded-lg text-left transition-colors ${
+                              selectedFeatures.includes(feature.name)
+                                ? 'bg-teal-600 text-white'
+                                : 'bg-zinc-800 text-gray-300 hover:bg-zinc-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="font-medium text-sm">{feature.name}</div>
+                                <div className="text-xs opacity-75">{feature.type}</div>
+                              </div>
+                              <button
+                                onMouseEnter={() => setShowFeatureTooltip(feature.name)}
+                                onMouseLeave={() => setShowFeatureTooltip(null)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowFeatureTooltip(showFeatureTooltip === feature.name ? null : feature.name);
+                                }}
+                                className="text-gray-400 hover:text-teal-400 ml-2"
+                              >
+                                <span className="inline-block w-4 h-4 text-center border border-current rounded-full text-xs leading-4">?</span>
+                              </button>
+                            </div>
+                          </button>
+                          {showFeatureTooltip === feature.name && (
+                            <div className="absolute z-10 mt-2 w-64 bg-zinc-700 border border-zinc-600 rounded-lg p-3 shadow-xl">
+                              <div className="text-teal-400 font-semibold text-sm mb-1">{feature.name}</div>
+                              <div className="text-gray-300 text-xs mb-2">{info.description}</div>
+                              <div className="text-gray-400 text-xs">
+                                <span className={`inline-block px-2 py-0.5 rounded text-xs ${
+                                  info.importance === 'high' ? 'bg-green-600' :
+                                  info.importance === 'medium' ? 'bg-yellow-600' : 'bg-gray-600'
+                                }`}>
+                                  {info.importance} importance
+                                </span>
+                              </div>
+                              {info.reason && (
+                                <div className="text-gray-300 text-xs mt-2">💡 {info.reason}</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -513,20 +808,56 @@ const DataAnalyzer = () => {
                   <div>
                     <h4 className="text-purple-400 text-sm font-medium mb-2">Derived Features</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {detectedFeatures.derived.map(feature => (
-                        <button
-                          key={feature.name}
-                          onClick={() => toggleFeature(feature.name)}
-                          className={`p-3 rounded-lg text-left transition-colors ${
-                            selectedFeatures.includes(feature.name)
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-zinc-800 text-gray-300 hover:bg-zinc-700'
-                          }`}
-                        >
-                          <div className="font-medium text-sm">{feature.name}</div>
-                          <div className="text-xs opacity-75">{feature.type}</div>
-                        </button>
-                      ))}
+                      {detectedFeatures.derived.map(feature => {
+                        const info = getFeatureInfo(feature.name);
+                        return (
+                          <div key={feature.name} className="relative group">
+                            <button
+                              onClick={() => toggleFeature(feature.name)}
+                              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                                selectedFeatures.includes(feature.name)
+                                  ? 'bg-purple-600 text-white'
+                                  : 'bg-zinc-800 text-gray-300 hover:bg-zinc-700'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="font-medium text-sm">{feature.name}</div>
+                                  <div className="text-xs opacity-75">{feature.type}</div>
+                                </div>
+                                <button
+                                  onMouseEnter={() => setShowFeatureTooltip(feature.name)}
+                                  onMouseLeave={() => setShowFeatureTooltip(null)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowFeatureTooltip(showFeatureTooltip === feature.name ? null : feature.name);
+                                  }}
+                                  className="text-gray-400 hover:text-purple-400 ml-2"
+                                >
+                                  <span className="inline-block w-4 h-4 text-center border border-current rounded-full text-xs leading-4">?</span>
+                                </button>
+                              </div>
+                            </button>
+                            {showFeatureTooltip === feature.name && (
+                              <div className="absolute z-10 mt-2 w-64 bg-zinc-700 border border-zinc-600 rounded-lg p-3 shadow-xl">
+                                <div className="text-purple-400 font-semibold text-sm mb-1">{feature.name}</div>
+                                <div className="text-gray-300 text-xs mb-2">{info.description}</div>
+                                <div className="text-gray-400 text-xs">
+                                  <span className={`inline-block px-2 py-0.5 rounded text-xs ${
+                                    info.importance === 'high' ? 'bg-green-600' :
+                                    info.importance === 'medium' ? 'bg-yellow-600' : 'bg-gray-600'
+                                  }`}>
+                                    {info.importance} importance
+                                  </span>
+                                </div>
+                                {info.reason && (
+                                  <div className="text-gray-300 text-xs mt-2">💡 {info.reason}</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -729,6 +1060,12 @@ const DataAnalyzer = () => {
                     </div>
                   </>
                 )}
+                {analysisResult.request_info && analysisResult.request_info.model_type && (
+                  <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-purple-600">
+                    <div className="text-gray-400 text-sm">ML Model</div>
+                    <div className="text-white text-xl font-bold">{analysisResult.request_info.model_type}</div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -800,7 +1137,7 @@ const DataAnalyzer = () => {
             </div>
 
             {/* ML Results */}
-            {analysisResult.xgb_results && (
+            {analysisResult.model_results && (
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-white mb-4">🤖 Machine Learning Results</h2>
                 <div className="space-y-4">
@@ -810,15 +1147,15 @@ const DataAnalyzer = () => {
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-400">Mean Squared Error (MSE):</span>
-                        <span className="text-white font-bold">{analysisResult.xgb_results.mse.toFixed(2)}</span>
+                        <span className="text-white font-bold">{analysisResult.model_results.mse.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-400">R² Score:</span>
-                        <span className={`font-bold ${analysisResult.xgb_results.r2 > 0.7 ? 'text-green-400' : analysisResult.xgb_results.r2 > 0.3 ? 'text-yellow-400' : 'text-red-400'}`}>
-                          {analysisResult.xgb_results.r2.toFixed(4)}
+                        <span className={`font-bold ${analysisResult.model_results.r2 > 0.7 ? 'text-green-400' : analysisResult.model_results.r2 > 0.3 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {analysisResult.model_results.r2.toFixed(4)}
                         </span>
                       </div>
-                      {analysisResult.xgb_results.bayesian_opt_used && (
+                      {analysisResult.model_results.bayesian_opt_used && (
                         <div className="mt-2 text-teal-400 text-sm">
                           ✨ Bayesian Optimization was used
                         </div>
@@ -838,7 +1175,7 @@ const DataAnalyzer = () => {
                   <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
                     <h3 className="text-teal-400 font-semibold mb-3 text-lg">Feature Importance</h3>
                     <div className="space-y-2 mb-4">
-                      {Object.entries(analysisResult.xgb_results.feature_importance)
+                      {Object.entries(analysisResult.model_results.feature_importance)
                         .sort(([,a], [,b]) => b - a)
                         .map(([feature, importance]) => (
                           <div key={feature} className="flex items-center gap-3">
@@ -974,15 +1311,15 @@ const DataAnalyzer = () => {
                   <div className="text-gray-400 text-sm">PCA Components</div>
                   <div className="text-white text-2xl font-bold">{analysisResult.pca_components || 'N/A'}</div>
                 </div>
-                {analysisResult.xgb_results && (
+                {analysisResult.model_results && (
                   <>
                     <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-blue-500">
                       <div className="text-gray-400 text-sm">R² Score</div>
-                      <div className="text-white text-2xl font-bold">{analysisResult.xgb_results.r2.toFixed(3)}</div>
+                      <div className="text-white text-2xl font-bold">{analysisResult.model_results.r2.toFixed(3)}</div>
                     </div>
                     <div className="bg-zinc-800 p-4 rounded-lg border-l-4 border-green-500">
                       <div className="text-gray-400 text-sm">MSE</div>
-                      <div className="text-white text-2xl font-bold">{analysisResult.xgb_results.mse.toFixed(0)}</div>
+                      <div className="text-white text-2xl font-bold">{analysisResult.model_results.mse.toFixed(0)}</div>
                     </div>
                   </>
                 )}
@@ -1057,7 +1394,7 @@ const DataAnalyzer = () => {
             </div>
 
             {/* ML Results */}
-            {analysisResult.xgb_results && (
+            {analysisResult.model_results && (
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-white mb-4">🤖 Machine Learning Results</h2>
                 <div className="space-y-4">
@@ -1067,15 +1404,15 @@ const DataAnalyzer = () => {
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-400">Mean Squared Error (MSE):</span>
-                        <span className="text-white font-bold">{analysisResult.xgb_results.mse.toFixed(2)}</span>
+                        <span className="text-white font-bold">{analysisResult.model_results.mse.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-400">R² Score:</span>
-                        <span className={`font-bold ${analysisResult.xgb_results.r2 > 0.7 ? 'text-green-400' : analysisResult.xgb_results.r2 > 0.3 ? 'text-yellow-400' : 'text-red-400'}`}>
-                          {analysisResult.xgb_results.r2.toFixed(4)}
+                        <span className={`font-bold ${analysisResult.model_results.r2 > 0.7 ? 'text-green-400' : analysisResult.model_results.r2 > 0.3 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {analysisResult.model_results.r2.toFixed(4)}
                         </span>
                       </div>
-                      {analysisResult.xgb_results.bayesian_opt_used && (
+                      {analysisResult.model_results.bayesian_opt_used && (
                         <div className="mt-2 text-teal-400 text-sm">
                           ✨ Bayesian Optimization was used
                         </div>
@@ -1095,7 +1432,7 @@ const DataAnalyzer = () => {
                   <div className="bg-zinc-800 p-6 rounded-lg border border-zinc-700">
                     <h3 className="text-teal-400 font-semibold mb-3 text-lg">Feature Importance</h3>
                     <div className="space-y-2 mb-4">
-                      {Object.entries(analysisResult.xgb_results.feature_importance)
+                      {Object.entries(analysisResult.model_results.feature_importance)
                         .sort(([,a], [,b]) => b - a)
                         .map(([feature, importance]) => (
                           <div key={feature} className="flex items-center gap-3">
