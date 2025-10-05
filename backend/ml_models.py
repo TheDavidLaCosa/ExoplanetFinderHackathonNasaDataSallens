@@ -7,6 +7,7 @@ import optuna
 from optuna.samplers import TPESampler
 import pandas as pd
 import warnings
+from sklearn.preprocessing import LabelEncoder
 warnings.filterwarnings('ignore')
 import xgboost as xgb
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay, average_precision_score
@@ -279,14 +280,13 @@ def train_model(model_type: str,
     --------
     dict : Resultados completos del entrenamiento y evaluación
     """
-
 	selector = ExoplanetModelSelector()
-
     # train
 	model = selector.train_model(model_type, X_train, y_train)
-
+	print(f"1")
     # Evaluate
 	results = selector.evaluate_model(model_type, X_test, y_test)
+	print(f"2")
 
 	#Grafics & Results
 	results_serializable = selector.results[model_type].copy()
@@ -330,7 +330,10 @@ def exoplanet_model_switch(data: pd.DataFrame, model_type: str, target: pd.DataF
 	"""
 	X = data
 	y = target
-	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42, stratify=y) #Train, test
+
+	le = LabelEncoder()
+	y = pd.DataFrame(y).apply(le.fit_transform)
+	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y) #Train, test
 
     # SWITCH 
 	if model_type in ['rf', 'xgb']:

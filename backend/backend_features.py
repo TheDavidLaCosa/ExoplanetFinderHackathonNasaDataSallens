@@ -208,9 +208,10 @@ def handle_excel():
 
         # Reading the columns
         columns, cleaned_path = read_columns_and_save_clean_csv(file.filename, content)
-        data, data_pca, model,target= process_data(columns, level=20,target='koi_disposition')
-        #results = exoplanet_model_switch(data, model,target)
-        #results_pca = exoplanet_model_switch(data_pca, model,target)        
+        data, data_pca, target= process_data(columns, level=20,target='koi_disposition')
+        model = "xgb"
+        results = exoplanet_model_switch(data, model,target)
+        results_pca = exoplanet_model_switch(data_pca, model,target)        
         CLEANED_CSV_PATHS[upload_id] = cleaned_path
 
         return render_template_string(

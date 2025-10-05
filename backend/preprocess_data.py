@@ -36,7 +36,7 @@ def control_nulls(dataset,level):
     return dataset
 
 
-def pca(data, model,level):
+def pca(data,level):
     data= control_nulls(data,level)
     num_cols = data.select_dtypes(include=[np.number]).columns
 
@@ -134,7 +134,7 @@ def pca(data, model,level):
     # Guardar como imagen JPG
     plt.savefig("./img/Correlation_numeric_values_pca.jpg", format="jpg", dpi=800)
     
-    return data, dataset_pca, model
+    return data, dataset_pca
 
 def process_data (cols , level, target):  
     dataset = pd.read_csv("./uploads/dataset.csv", sep = ",")
@@ -143,7 +143,7 @@ def process_data (cols , level, target):
 
     df_filtrado = dataset[[c for c in cols if c in dataset.columns]].copy()
     
-    d,d_pca, m, = pca (df_filtrado,'xgboost',level)
+    d,d_pca= pca (df_filtrado, level)
     d.to_csv('data.csv')
     d_pca.to_csv('data_pca.csv')
-    return d,d_pca,m,y
+    return d,d_pca,y
