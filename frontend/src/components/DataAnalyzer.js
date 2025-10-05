@@ -40,7 +40,7 @@ const DataAnalyzer = () => {
 
       console.log('📤 Uploading file to backend...', uploadedFile.name);
       
-      const response = await fetch('http://localhost:4000/api/upload', {
+      const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData
       });
@@ -582,7 +582,7 @@ const DataAnalyzer = () => {
 
       console.log('🔬 Sending analysis request to backend...', requestPayload);
 
-      const response = await fetch('http://localhost:4000/api/analyze', {
+      const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
