@@ -11,6 +11,8 @@ An interactive web application that trains neural networks on real NASA exoplane
 - **Uzziel Perez** - [Github profile](https://github.com/uzzielperez)
 - **Manel Cerezo** - [Github profile](https://github.com/MCerezoSalle)
 - **David Larrosa Camps** - [Github profile](https://github.com/TheDavidLaCosa)
+- **Carlos Sneyder Murillo Maza** - [Github profile](https://github.com/sneymz00)
+- **Meritxell Cordón Domínguez** - [Github profile](https://github.com/MertixellCD)
 
 ---
 
