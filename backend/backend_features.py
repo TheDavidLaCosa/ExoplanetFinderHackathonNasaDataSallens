@@ -12,6 +12,7 @@ UPLOAD_STORE: dict[str, bytes] = {}
 CLEANED_CSV_PATHS: dict[str, str] = {}
 
 UPLOAD_DIR = "./uploads"
+IMG_DIR = "./img"
 
 # ---------------------------
 # Plantilles HTML (inline)
@@ -132,79 +133,82 @@ TPL_RESULT = """
 """
 
 # ---------------------------
-# Helpers
+# Functions
 # ---------------------------
 
+# Function that checks the folderd
+def _ensure_dirs():
+    _ensure_upload_dir()
+    _ensure_img_dir()
+
+# Function that checks if the upload folder exists
+def _ensure_img_dir():
+    os.makedirs(IMG_DIR, exist_ok=True)
+
+# Function that checks if the upload folder exists
 def _ensure_upload_dir():
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# Function that reads the CSV file, gets the values and saves the CSV file
 def read_columns_and_save_clean_csv(filename: str, content: bytes) -> tuple[list[str], str]:
-    """
-    Llegeix TOT el fitxer (taula en memòria) i desa un CSV net (sense línies amb '#').
-    Retorna (columns, cleaned_csv_path).
-
-    - CSV: sep="," i comment="#"
-    - Excel: es converteix a CSV (sep=",") per uniformitat
-    """
+    
     lower = (filename or "").lower()
+    # Checking that the folder exists
     _ensure_upload_dir()
+    # Creating path for the CSV
     cleaned_path = os.path.join(UPLOAD_DIR, f"dataset.csv")
 
+    # Reading CSV file
     if lower.endswith(".csv"):
-        # Llegeix tot el CSV ja netejant metadades amb '#'
-        df = pd.read_csv(
-            io.BytesIO(content),
-            sep=",",
-            comment="#",
-            engine="python",
-            on_bad_lines="skip"
-        )
-        # Desa CSV net
+        df = pd.read_csv(io.BytesIO(content), sep=",", comment="#", 
+                         engine="python", on_bad_lines="skip")
+
+        # Save dataset
         df.to_csv(cleaned_path, index=False)
+        # Return the columns of the dataset
         return list(df.columns), cleaned_path
 
+    # Reading Excel file
     elif lower.endswith(".xlsx") or lower.endswith(".xls"):
-        # Excel: llegeix tot i desa en format CSV per consistència
         df = pd.read_excel(io.BytesIO(content))
+        # Save dataset
         df.to_csv(cleaned_path, index=False)
+        # Return the columns of the dataset
         return list(df.columns), cleaned_path
 
     else:
-        raise ValueError("Format no suportat. Fes servir .xlsx, .xls o .csv")
+        raise ValueError("File not suported. Use: .xlsx, .xls o .csv")
 
 # ---------------------------
-# Rutes
+# Flask Routes
 # ---------------------------
+
 
 @app.route("/excel", methods=["GET"])
 def upload_excel():
     """Mostra el formulari per pujar el fitxer."""
     return render_template_string(TPL_UPLOAD)
 
+# Function that gets te CSV file
 @app.route("/excel", methods=["POST"])
 def handle_excel():
-    """
-    Rep el fitxer, el desa en memòria, llegeix tota la taula netejant '#'
-    i desa un CSV net a ./uploads/{upload_id}_clean.csv. Mostra columnes.
-    """
+    # Getting the file
     file = request.files.get("file")
-    if not file or file.filename == "":
-        return render_template_string(
-            TPL_COLUMNS,
-            filename="(sense nom)",
-            columns=[],
-            error="No s'ha rebut cap fitxer.",
-            upload_id="",
-            cleaned_path=""
-        )
+    if not file or file.filename == "": #TODO: handle no file received
+        return render_template_string(TPL_COLUMNS, filename="(sense nom)", columns=[], 
+                                      error="No s'ha rebut cap fitxer.", upload_id="", 
+                                      cleaned_path="")
 
+    # Reading file
     try:
         content = file.read()  # bytes del fitxer
         upload_id = str(uuid.uuid4())
         UPLOAD_STORE[upload_id] = content
 
+        # Reading the columns
         columns, cleaned_path = read_columns_and_save_clean_csv(file.filename, content)
-        data, data_pac, model= process_data(columns, level=20)
+        # Processing the data
+        data, data_pac, model= process_data(columns, level=20) #TODO: target variable
         CLEANED_CSV_PATHS[upload_id] = cleaned_path
 
         return render_template_string(
@@ -215,15 +219,13 @@ def handle_excel():
             upload_id=upload_id,
             cleaned_path=cleaned_path
         )
+    
+    # Handling error
     except Exception as e:
-        return render_template_string(
-            TPL_COLUMNS,
-            filename=getattr(file, "filename", "(sense nom)"),
-            columns=[],
-            error=f"Error en llegir/guardar el fitxer: {e}",
-            upload_id="",
-            cleaned_path=""
-        )
+        return render_template_string(TPL_COLUMNS, filename=getattr(file, "filename", "(sense nom)"), 
+                                      columns=[], error=f"Error en llegir/guardar el fitxer: {e}",
+                                      upload_id="", cleaned_path="")
+
 
 @app.route("/excel/submit", methods=["POST"])
 def submit_columns():
@@ -245,9 +247,8 @@ def submit_columns():
 
     return render_template_string(TPL_RESULT, filename=filename, selected=selected)
 
-# ---------------------------
-# Main
-# ---------------------------
+
+# Main function
 if __name__ == "__main__":
-    _ensure_upload_dir()
+    _ensure_dirs()
     app.run(host="0.0.0.0", port=4000, debug=True)

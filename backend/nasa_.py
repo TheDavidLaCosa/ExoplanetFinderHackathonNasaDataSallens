@@ -137,7 +137,7 @@ def pca(data, model,level):
 
     return data, dataset_pca, model
 
-def process_data ( columns , level=20):  
+def process_data (columns , level):  #todo target variable
     dataset = pd.read_csv("./uploads/dataset.csv", sep = ",")
 
     df_filtrado = dataset.drop(columns=[col for col in columns if col not in dataset.columns])
